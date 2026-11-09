@@ -6,15 +6,17 @@
 - Readable on a phone. 320x176 pixel canvas, big touch buttons.
 
 ## Combat
-- Stamina: light, heavy, roll and blocked hits drain it. Regen starts about 0.6 s after the last action, slower while blocking.
-- Light attack: tap. Heavy: hold 14 frames. Attacks commit; late recovery can be cancelled into another action.
+- Stamina: light, heavy, roll, jump (8) and blocked hits drain it. Regen starts about 0.75 s after an attack, slower while blocking. No stamina, no jump.
+- Pace (V13): combat is slow and deliberate. Player wind-up x1.35 and recovery x1.3 on every weapon (`PACE`), enemy wind-up and recovery x1.15. Hitstop 5 / 8 / 12 frames (light / heavy / crit). Stagger 24 frames.
+- Light attack: tap. Heavy: hold 14 frames. Attacks commit: a buffered action only cuts in for the last quarter of the recovery.
+- Combo: a light swing chained out of that late window builds a 3 hit string. Each link winds up 15% faster and hits 15% harder (up to +30%). A heavy resets it.
 - Block: front hits only. Chip damage = dmg x (1 - absorb). Stamina cost = dmg x (100 - stability) / 28. Empty stamina = guard break (50 frame stagger).
 - Parry: block raised within the shield's parry window (5 to 11 frames) when a parryable hit lands. Enemy staggers 80 frames; next hit is a riposte for 3x damage.
 - Roll: 18 stamina, i-frames depend on armor weight (light / mid / heavy).
 - Poise: enemies stagger when poise damage exceeds their poise.
 - Fireball: unlocked by beating the Jarl. 30 stamina, 24 frame cast, flies straight, 34 damage (scales with STR), 20 poise damage. Shieldbearers block it from the front, glowing wisps ignore it.
 - Flasks: 3 (4 after the Jarl). Heal 45% max HP, slow to drink. Potions refill one flask, or heal 35% when full.
-- Movement: walk about 57 px/s, jump about 42 to 46 px.
+- Movement: walk about 47 px/s with slow start and stop. Turning in the air is not possible and air steering is weak, so jumps commit. Heavier gravity (0.34) and a stronger jump (5.6) keep the same reach (about 39 px tap, 46 px held) with less hang time. Landing slows you for 4 frames, a long fall for 14.
 
 ## Enemies (area: lesson)
 1. Crypt Rat: telegraphed lunge then long recovery. Space and punish.
@@ -49,6 +51,8 @@
 
 ## Floors
 - 100 floors. 1 to 10 are hand built (one lesson each, Jarl on 10). 11 to 100 are generated from a seed, so each floor is the same every visit.
+- Areas are long: hand built areas are about 82 tiles (a mirrored second half), generated floors 70 to 110 tiles. Mob count scales with width.
+- Rest shrine: in the middle of every area but boss halls. A safe zone 7 tiles wide marked by standing stones: no damage, monsters are pushed out, shots fizzle, HP slowly refills, calm music plays. Resting there is a bonfire (level up, cook, refill, monsters return) and you wake there after death until you rest at the bonfire again (`CH.cp`).
 - Deeper floors: wider, more mobs, mixed bodies, enemy HP +3.5 and damage +1.8 per floor past 10.
 - Odd generated floors run right to left (bonfire on the right, exit on the left).
 - Every 10th floor is a Jarl hall with a traited Jarl. The first Jarl gives the win screen and fireball, later ones lead on.
@@ -91,6 +95,8 @@
 ## Music
 - Title: "dungeon_music_preview.mp3" streamed from `docs/music`. Falls back to generated music if the file is missing (single-file artifact).
 - Areas: generated live. Seeded chord walk per area (key, mode, tempo, filter), a motif that mutates each phrase, drone, pad, bells, drips, echo.
+- 16 area themes. When awake monsters are near, a fight layer (war drums and a low pulse) joins the area music.
+- Rest shrine: "Shrine Lullaby" (F major, 72 BPM, harp arps and a slow hymn).
 - Boss: "The Jarl Rises" chiptune. Win: "Dungeon Complete" sting.
 - Footsteps vary with armor weight.
 
