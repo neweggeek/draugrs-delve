@@ -246,38 +246,6 @@ krk.kSSSSSSSk.krk...
 .....kNNkNNk........
 .....kNNkNNk........
 ....kkkkkkkkk.......`,
-knight:`
-.....kkkkk......
-....kssssskk....
-....ksSkkkSk....
-....kskffffk....
-....ksfkfkfk....
-.....kffffk.....
-....kBBBBBBk....
-...kfkBbbBkfk...
-...kfkBbbBkfks..
-...kkkBBBBkkks..
-....kNNNNNNk.s..
-....kBBkkBBk.n..
-....kBk..kBk....
-....kNk..kNk....
-...kkkk..kkkk...`,
-knight2:`
-.....kkkkk......
-....kssssskk....
-....ksSkkkSk....
-....kskffffk....
-....ksfkfkfk....
-.....kffffk.....
-....kBBBBBBk....
-...kfkBbbBkfk...
-...kfkBbbBkfks..
-...kkkBBBBkkks..
-....kNNNNNNk.s..
-....kBBkkBBk.n..
-...kBk....kBk...
-...kNk....kNk...
-..kkkk....kkkk..`,
 coin:`
 ..kkkk..
 .kyyyyk.
@@ -1000,8 +968,6 @@ function sfx(n) { if (!AC || muted) return; try { SFX[n](); } catch (e) {} }
 
 // ================= Extra sprites and sounds =================
 const recolor = (src, map) => src.replace(/[A-Za-z]/g, ch => map[ch] || ch);
-const CLASS_TINT = { knight: {}, berserker: { s: 'n', S: 'N', B: 'r', b: 'o' }, rogue: { s: 'M', S: 'k', B: 'p', b: 'M' } };
-for (const c in CLASS_TINT) { SPR['k_' + c] = mkSprite(recolor(GRIDS.knight, CLASS_TINT[c])); SPR['k_' + c + '2'] = mkSprite(recolor(GRIDS.knight2, CLASS_TINT[c])); }
 SPR.wispDim = mkSprite(recolor(GRIDS.wisp, { y: 'g', o: 'm', r: 'M' }));
 Object.assign(SFX, {
   parry: () => { tone(1800, 1800, .08, .125, .2); tone(2400, 2400, .25, .25, .14, .04); },
@@ -1029,6 +995,187 @@ Object.assign(SFX, {
   land: () => { triHit(AC.currentTime, 110, 45, .18, .09, sfxG); noiseHit(AC.currentTime, .08, .06, false, sfxG); },
   died: () => [196, 165, 131, 98].forEach((f, i) => tone(f, f * .97, .4, .5, .12, i * .25))
 });
+
+// ================= Hero sprites (body parts + held gear) =================
+// The hero is built each frame from parts: head (class), torso (armor), legs (pose), front arm, weapon, shield.
+// All parts are text grids facing right. Torso letters: A armor dark, a armor light, C class cloth.
+const HERO = {
+  head: {
+    knight: `
+.....kkkkk......
+....ksssssk.....
+...ksssssssk....
+...kSsskkkkk....
+...kSsfkfkk.....
+....kSSffk......`,
+    berserker: `
+.k..........k...
+.wk.kkkkkk.kw...
+..kkNnnnnnkk....
+...kNnfkfkk.....
+...kNnfffok.....
+....kNooook.....`,
+    rogue: `
+.....kkkk.......
+....kMMMMkk.....
+...kMMMMMMMk....
+...kMMMkkffk....
+...kMMkfkfk.....
+....kMMkfk......`
+  },
+  torso: `
+....kCCCCCk.....
+...kaAACCAAk....
+...kaAACCAk.....
+...kfkNyNNk.....
+....kAAAAk......`,
+  legs: {
+    idle: `
+....kMk..kMk....
+....kMk..kMk....
+....kMk..kMk....
+....kNNk.kNNk...
+....kkkk.kkkk...`,
+    walk1: `
+....kSk.kMk.....
+...kSk...kMk....
+..kSk.....kMk...
+..kNNk....kNNk..
+..kkkk....kkkk..`,
+    walk2: `
+.....kSkMk......
+.....kSkMk......
+.....kSkkMMk....
+....kNNkkkNNk...
+....kkkk..kkk...`,
+    walk3: `
+....kMk.kSk.....
+...kMk...kSk....
+..kMk.....kSk...
+..kNNk....kNNk..
+..kkkk....kkkk..`,
+    walk4: `
+.....kMkSk......
+.....kMkSk......
+.....kMkkSSk....
+....kNNkkkNNk...
+....kkkk..kkk...`,
+    jump: `
+....kMk.kMk.....
+...kMk...kMkk...
+...kNNk...kNNk..
+...kkkk...kkkk..
+................`,
+    tuck: `
+...kMMk.kMMk....
+...kNNk.kNNk....
+...kkkk.kkkk....
+................
+................`
+  },
+  // weapons point right; p = grip pixel that sits in the hand
+  wpn: {
+    sword: { p: [2, 2], g: `
+.k............
+kyk.kkkkkkkk..
+kNykswwwwwwwkk
+kyk.kSSSSSSk..
+.k............` },
+    axe: { p: [1, 2], g: `
+..........kk..
+kkkkkkkkkksskk
+kNnnnnnnnksswk
+kkkkkkkkkssswk
+.........ksSSk
+..........ksk.
+...........k..` },
+    dagger: { p: [1, 1], g: `
+.k......
+kNkkkkk.
+kNyswwwk
+.k.kkk..` }
+  },
+  shd: {
+    buckler: `
+.kkk.
+knsnk
+ksysk
+knsnk
+.kkk.`,
+    wood: `
+.kkkk.
+knnnNk
+knyNNk
+knnnNk
+knnnNk
+knnnNk
+.knNk.
+..kk..`,
+    kite: `
+kkkkkk
+ksBBsk
+ksBBsk
+kBBBBk
+ksBBsk
+.ksBk.
+.kssk.
+..kk..`
+  }
+};
+const ARMOR_COL = { leather: ['N', 'n'], cloak: ['M', 'm'], hide: ['n', 'P'], chain: ['S', 's'], mail: ['T', 't'] };
+const CLASS_COL = { knight: 'B', berserker: 'r', rogue: 'p' };
+const WPN_TINT = { thrallblade: { w: 'g', S: 'm', y: 'M' }, draugr: { w: 'e', S: 't', y: 'T' }, forgeaxe: { s: 'o', w: 'y', S: 'r' }, emberdaggers: { w: 'y', s: 'o' } };
+const HSPR = {}; // lazy cache of built part sprites
+function hspr(key, src) { return HSPR[key] || (HSPR[key] = mkSprite(src)); }
+const HB = document.createElement('canvas'); HB.width = 48; HB.height = 40;
+const hb = HB.getContext('2d'); hb.imageSmoothingEnabled = false;
+const HOX = 24, HOY = 36; // feet center inside the buffer
+// pose: { cls, w, s, a, legs, A (weapon angle, deg), reach (hand push), lean, bob, block }
+function paintHero(o) {
+  hb.clearRect(0, 0, 48, 40);
+  const wid = o.w, wt = ITEMS[wid].type, wg = HERO.wpn[wt], wsp = hspr('w_' + wid, recolor(wg.g, WPN_TINT[wid] || {}));
+  const ac = ARMOR_COL[o.a] || ARMOR_COL.chain;
+  const torso = hspr('t_' + o.a + o.cls, recolor(HERO.torso, { A: ac[0], a: ac[1], C: CLASS_COL[o.cls] }));
+  const head = hspr('h_' + o.cls, HERO.head[o.cls]), legs = hspr('l_' + o.legs, HERO.legs[o.legs]);
+  const shd = o.s !== 'none' ? hspr('s_' + o.s, HERO.shd[o.s]) : null;
+  const ux = HOX - 8 + (o.lean || 0), uy = HOY - 16 + (o.bob || 0); // upper body grid origin
+  const drawW = (sp, p, hx, hy, ang) => { hb.save(); hb.translate(hx, hy); hb.rotate(ang * Math.PI / 180); hb.drawImage(sp.c[0], -p[0], -p[1]); hb.restore(); };
+  // back hand: second dagger, shield on the far arm
+  if (wt === 'dagger') drawW(wsp, wg.p, ux + 4, uy + 9, o.block ? -60 : 20);
+  if (shd && !o.block) hb.drawImage(shd.c[0], ux + 4 - (shd.w >> 1), uy + 6);
+  hb.drawImage(legs.c[0], HOX - 8, HOY - legs.h);
+  hb.drawImage(torso.c[0], ux, uy + 6);
+  hb.drawImage(head.c[0], ux, uy);
+  // front arm from shoulder to hand, weapon in hand
+  const a = o.A * Math.PI / 180, sx = ux + 9, sy = uy + 7, r = 4 + (o.reach || 0);
+  const hx = Math.round(sx + Math.cos(a) * r), hy = Math.round(sy + Math.sin(a) * r);
+  if (!o.block || !shd) drawW(wsp, wg.p, hx, hy, o.A);
+  hb.fillStyle = PAL.k;
+  for (let i = 0; i <= 4; i++) { const t = i / 4; hb.fillRect(Math.round(sx + (hx - sx) * t) - 1, Math.round(sy + (hy - sy) * t) - 1, 3, 3); }
+  hb.fillStyle = PAL[ac[0]];
+  for (let i = 0; i <= 4; i++) { const t = i / 4; hb.fillRect(Math.round(sx + (hx - sx) * t), Math.round(sy + (hy - sy) * t), 1, 2); }
+  hb.fillStyle = PAL.N; hb.fillRect(hx - 1, hy - 1, 2, 2);
+  if (o.block && shd) { drawW(wsp, wg.p, sx - 2, sy + 2, -60); hb.drawImage(shd.c[0], ux + 11, uy + 4); }
+  if (o.tint) { hb.globalCompositeOperation = 'source-atop'; hb.fillStyle = o.tint === 'r' ? '#ff3a2a' : '#ffffff'; hb.fillRect(0, 0, 48, 40); hb.globalCompositeOperation = 'source-over'; }
+  return HB;
+}
+// draw the painted buffer with feet at (x, by) on the main canvas, facing face; optional spin (roll) and scale
+function blitHero(x, by, face, spin = 0, sc = 1) {
+  ctx.save(); ctx.translate(Math.round(x), Math.round(by));
+  if (spin) { ctx.translate(0, -7 * sc); ctx.rotate(spin); ctx.translate(0, 7 * sc); }
+  ctx.scale(face < 0 ? -sc : sc, sc); ctx.drawImage(HB, -HOX, -HOY); ctx.restore();
+}
+// small picture of an item, left edge x, vertically centered on y (equip menu)
+function gearIcon(id, x, y) {
+  const it = ITEMS[id]; let sp;
+  if (it.slot === 'w') sp = hspr('w_' + id, recolor(HERO.wpn[it.type].g, WPN_TINT[id] || {}));
+  else if (it.slot === 's') { if (id === 'none') return; sp = hspr('s_' + id, HERO.shd[id]); }
+  else { const ac = ARMOR_COL[id]; sp = hspr('t_' + id + CH.cls, recolor(HERO.torso, { A: ac[0], a: ac[1], C: CLASS_COL[CH.cls] })); }
+  ctx.drawImage(sp.c[0], Math.round(x + 8 - sp.w / 2), Math.round(y - sp.h / 2));
+}
+// a standing hero with default class gear (menus, title)
+function heroIdle(cls, eq) { const e = eq || CLASSES[cls].eq; return paintHero({ cls, w: e.w, s: e.s, a: e.a, legs: 'idle', A: IDLE_A[ITEMS[e.w].type] }); }
+const IDLE_A = { sword: -50, axe: -140, dagger: 35 };
 
 // ================= Classes, gear, character =================
 const CLASSES = {
@@ -1866,29 +2013,37 @@ function drawSprScaled(s, cx, by, face, tint, sc) {
   const dx = Math.round(cx - ((x0 + x1) / 2) * sc - camX), dy = Math.round(by - s.bb.y1 * sc);
   ctx.drawImage(img, dx, dy, s.w * sc, s.h * sc);
 }
+// weapon swing angles per type: [rest, wind-up, swing end]; heavy winds further back
+const SWING = { sword: [-50, -150, 50], axe: [-140, -175, 60], dagger: [35, -30, 5] };
+const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+function heroPose() {
+  const w = WPN(), wt = w.type, sw = SWING[wt];
+  const o = { cls: CH.cls, w: CH.eq.w, s: CH.eq.s, a: CH.eq.a, legs: 'idle', A: sw[0], reach: 0, lean: 0, bob: 0, block: false, tint: false };
+  if (!P.onGround) { o.legs = P.vy < 0 ? 'jump' : 'walk1'; o.A = sw[0] - 25; }
+  else if (P.walkT) { const f = ((P.walkT / 7) | 0) % 4; o.legs = 'walk' + (f + 1); o.bob = f % 2 ? -1 : 0; o.A = sw[0] + (f % 2 ? -4 : 4); }
+  if (P.state === 'atk') {
+    const back = sw[1] - (P.heavy ? 15 : 0);
+    if (P.atkPhase === 'wind') { const tot = P.heavy ? w.tw[1] : w.tw[0]; o.A = lerp(sw[0], back, (1 - P.atkT / tot) * 1.6); o.lean = -1; if (wt === 'dagger') o.reach = -2; }
+    else if (P.atkPhase === 'act') { o.A = lerp(back, sw[2], 1 - (P.atkT - 1) / w.ta); o.lean = 1; o.legs = 'walk1'; if (wt === 'dagger') o.reach = 4; }
+    else { const tot = P.heavy ? w.tr[1] : w.tr[0]; o.A = lerp(sw[2], sw[0], 1 - P.atkT / tot); o.legs = P.atkT > tot / 2 ? 'walk1' : 'idle'; }
+  }
+  if (P.blocking) { o.block = true; if (CH.eq.s === 'none') { o.A = -100; o.reach = 1; } }
+  if (P.state === 'roll') o.legs = 'tuck';
+  if (P.state === 'stag' || P.state === 'gbreak') { o.A = 50; o.lean = -1; if (P.t % 6 < 3) o.tint = 'w'; }
+  if (P.state === 'cast') { o.A = -10; o.reach = 2; o.lean = 1; }
+  if (P.state === 'heal') { o.A = 60; }
+  if (P.state === 'atk' && P.atkPhase === 'wind' && P.heavy && P.atkT < 8 && P.atkT % 4 < 2) o.tint = 'w';
+  return o;
+}
 function drawPlayer() {
   if (P.state === 'dead') return;
   if (P.iframes > 0 && P.state !== 'roll' && ((P.iframes / 3) | 0) % 2) return;
-  const key = 'k_' + CH.cls, spr = P.walkT && ((P.walkT / 9) | 0) % 2 ? SPR[key + '2'] : SPR[key];
-  const cx = P.x + P.w / 2, by = P.y + P.h + 1;
-  if (P.state === 'roll') {
-    const wt = WT[ARM().wt], ang = (1 - P.t / wt.roll) * Math.PI * 2 * P.rollDir;
-    ctx.save(); ctx.translate(Math.round(cx - camX), Math.round(P.y + 8)); ctx.rotate(ang);
-    ctx.drawImage(spr.c[P.face < 0 ? 1 : 0], -8, -8); ctx.restore(); return;
-  }
-  let tint = false, ox = 0;
-  if (P.state === 'stag' || P.state === 'gbreak') { ox = rnd(-1, 1); if (P.t % 6 < 3) tint = 'w'; }
-  if (P.state === 'atk' && P.atkPhase === 'wind' && P.heavy && P.atkT < 8 && P.atkT % 4 < 2) tint = 'w';
-  drawSpr(spr, cx, by, P.face, tint, ox, 0);
-  // shield / guard
-  if (P.blocking) {
-    const sx = Math.round((P.face > 0 ? P.x + P.w - 1 : P.x - 4) - camX), sy = Math.round(P.y + 3), id = CH.eq.s;
-    if (id === 'none') { ctx.fillStyle = '#8a96a8'; ctx.fillRect(sx + 1, sy - 2, 2, 12); }
-    else if (id === 'buckler') { ctx.fillStyle = '#6a4028'; ctx.fillRect(sx, sy + 2, 4, 5); ctx.fillStyle = '#f8d048'; ctx.fillRect(sx + 1, sy + 4, 2, 1); }
-    else if (id === 'wood') { ctx.fillStyle = '#3e2418'; ctx.fillRect(sx, sy, 4, 10); ctx.fillStyle = '#8a5a40'; ctx.fillRect(sx + 1, sy + 1, 2, 8); }
-    else { ctx.fillStyle = '#4a5260'; ctx.fillRect(sx, sy - 1, 5, 11); ctx.fillStyle = '#8a96a8'; ctx.fillRect(sx + 1, sy, 3, 9); ctx.fillStyle = '#2e6a9a'; ctx.fillRect(sx + 2, sy + 1, 1, 7); ctx.fillRect(sx + 1, sy + 3, 3, 1); }
-    if (P.blockT <= SHD().parry) { ctx.fillStyle = '#fff2c0'; ctx.fillRect(sx + (P.face > 0 ? 4 : -1), sy - 1, 1, 12); }
-  }
+  const cx = P.x + P.w / 2, by = P.y + P.h + 1, o = heroPose();
+  paintHero(o);
+  if (P.state === 'roll') { const wt = WT[ARM().wt]; blitHero(cx - camX, by, P.face, (1 - P.t / wt.roll) * Math.PI * 2 * P.rollDir * P.face); return; }
+  blitHero(cx - camX + (P.state === 'stag' || P.state === 'gbreak' ? rnd(-1, 1) : 0), by, P.face);
+  // parry window glint on the raised shield
+  if (P.blocking && P.blockT <= SHD().parry) { ctx.fillStyle = '#fff2c0'; ctx.fillRect(Math.round(cx + P.face * 9 - camX), Math.round(P.y - 1), 1, 12); }
   // heavy wind-up glint
   if (P.state === 'atk' && P.atkPhase === 'wind' && P.heavy) { ctx.fillStyle = frameN % 6 < 3 ? '#f8d048' : '#fff2c0'; ctx.fillRect(Math.round(cx - P.face * 7 - camX), Math.round(P.y - 3), 2, 2); }
   // weapon arc
@@ -2104,7 +2259,8 @@ function drawTitle() {
   const line = ['knight', 'rat', 'bat', 'thrall', 'archer', 'spider', 'slime', 'wisp', 'shambler', 'shield', 'jarl'];
   line.forEach((k, i) => {
     const x = 24 + i * 27, by = 144 + (k === 'bat' || k === 'wisp' ? -14 + Math.round(Math.sin(frameN * .08 + i) * 2) : 0);
-    drawSpr(SPR[k === 'knight' ? 'k_' + (SAVE ? SAVE.cls : 'knight') : k], x, by, k === 'knight' ? 1 : -1, false, 0, 0, 0);
+    if (k === 'knight') { heroIdle(SAVE ? SAVE.cls : 'knight', SAVE && SAVE.eq); blitHero(x, by, 1); }
+    else drawSpr(SPR[k], x, by, -1, false, 0, 0, 0);
   });
 }
 function drawClassSelect() {
@@ -2115,7 +2271,7 @@ function drawClassSelect() {
     const c = CLASSES[k], x = 8 + i * 104, y = 24, w = 96, h = 130, sel = i === classSel;
     ctx.fillStyle = sel ? 'rgba(242,193,78,.12)' : 'rgba(30,20,24,.9)'; ctx.fillRect(x, y, w, h);
     ctx.fillStyle = sel ? '#f2c14e' : '#4a3a3a'; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h);
-    const s = SPR['k_' + k]; ctx.drawImage(s.c[0], x + w / 2 - 16, y + 6, 32, 32);
+    heroIdle(k); blitHero(x + w / 2, y + 39, 1, 0, 2);
     drawTextS(c.name, x + w / 2, y + 44, sel ? '#f2c14e' : '#f4ead6', 1, 'center');
     c.desc.forEach((d, j) => drawText(d, x + w / 2, y + 56 + j * 8, '#d8c8b8', 1, 'center'));
     const it = c.eq;
@@ -2148,7 +2304,7 @@ function drawMenu() {
     }
     if (it.slot) label = it.label + ': ' + ITEMS[CH.eq[it.slot]].name;
     uiButton(label, x, y, w, h, sel, () => { m.sel = i; it.act(); }, null, it.slot ? 4 : undefined);
-    if (it.slot) drawText(itemLine(CH.eq[it.slot]), W / 2, y + 13, '#8fd6c3', 1, 'center');
+    if (it.slot) { drawText(itemLine(CH.eq[it.slot]), W / 2, y + 13, '#8fd6c3', 1, 'center'); gearIcon(CH.eq[it.slot], x + 4, y + h / 2); }
   });
   if (m.msgT > 0) drawTextS(m.msg, W / 2, 140, '#f2c14e', 1, 'center');
   drawText(isTouchUI() ? 'TAP TO CHOOSE   BLOCK: BACK' : 'W S: CHOOSE   ENTER: OK   ESC: BACK', W / 2, 160, '#8a7a6a', 1, 'center');
