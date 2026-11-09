@@ -62,6 +62,24 @@ async def main():
         h = 130 - await ev("window.__minY")
         check("tap jump clears ledge", h > 34, f"{round(h)}px")
 
+        # air dash: roll once in the air, it floats and gives i-frames; a second one waits for the ground
+        await ev("__dd.tp(4*16, 130); __dd.P.stam = 100"); await pg.wait_for_timeout(300)
+        await pg.keyboard.press("Space"); await pg.wait_for_timeout(150); await pg.keyboard.press("KeyL"); await pg.wait_for_timeout(60)
+        check("air dash", await ev("__dd.P.state === 'roll' && !__dd.P.onGround && __dd.P.airDash && __dd.P.iframes > 0"))
+        await pg.wait_for_timeout(1200)
+        # roll jump: jump out of a ground roll keeps the roll speed
+        await ev("__dd.P.stam = 100"); await pg.keyboard.press("KeyL"); await pg.wait_for_timeout(80); await pg.keyboard.press("Space"); await pg.wait_for_timeout(50)
+        check("jump out of a roll", await ev("__dd.P.state === 'free' && __dd.P.vy < 0 && Math.abs(__dd.P.vx) > 1.5"), str(await ev("[__dd.P.state, __dd.P.vy, __dd.P.vx]")))
+        await pg.wait_for_timeout(1200)
+
+        # spikes: one misstep is one hit, no stagger, thrown out of the pit
+        await ev("__dd.newGame('knight',2)"); await pg.wait_for_timeout(300)
+        await ev("for (const e of __dd.enemies) e.dead = true; const k = SPAWNS.spikes[0]; __dd.tp(k.x, k.y - 20); __dd.P.vx = .8; __dd.P.face = 1; window.__hp0 = __dd.P.hp")
+        await pg.wait_for_timeout(250)
+        check("spikes hurt without stagger", await ev("__dd.P.hp < window.__hp0 && __dd.P.state !== 'stag'"), str(await ev("[__dd.P.hp, window.__hp0, __dd.P.state]")))
+        await ev("window.__hp1 = __dd.P.hp"); await pg.wait_for_timeout(2000)
+        check("spikes throw you clear", await ev("__dd.P.hp === window.__hp1 && !SPAWNS.spikes.some(k => overlap(__dd.P, k))"), str(await ev("[__dd.P.hp, window.__hp1, __dd.P.x, SPAWNS.spikes[0].x]")))
+
         # bonfire, level up, equipment
         await ev("__dd.newGame('knight',0); __dd.CH.xp = 1000"); await pg.wait_for_timeout(200)
         await pg.keyboard.press("KeyE"); await pg.wait_for_timeout(100)
