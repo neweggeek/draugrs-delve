@@ -116,6 +116,14 @@
 - Rune altar on floors 3, 6, 9, ... (not boss halls), next to the bonfire. Craft a random item of a chosen rarity for 15 / 40 / 100 / 250 dust (unowned first), or temper worn weapon or armor for 30 + 25 x level x (rarity + 1) dust.
 - Dust also comes from kills (25% chance, elites and Jarls always, more on deep floors) and from chests that have nothing left to give.
 
+## Durability
+- Weapon, shield and armor wear down. Weapon: 1 per hit landed (1.5 heavy). Shield: 1 + damage / 25 per block. Armor: 1 per hit taken.
+- Hits to wear out, by rarity: weapon 220 / 300 / 400 / 550, shield 90 / 130 / 180 / 250, armor 70 / 100 / 140 / 200. Rings and amulets never wear.
+- Under 30% the item is DAMAGED (stats x0.85). At 0% it is BROKEN (attack, block, stability or defense x0.5). It is not lost.
+- The HUD warns, bag cells show a bar (red ! when broken), the tooltip shows the percent.
+- Bonfire REPAIR fixes everything you carry: (missing % x (rarity + 1) / 8) dust per item, rounded up. Short on dust, each missing dust costs 4 XP.
+- Combine, temper and picking up a fresh copy also restore an item.
+
 ## Status effects
 - Four effects, same rules for the hero and monsters. Hits fill a meter to 100; the meter drains slowly. When it fills:
   BLEED bursts for 20% max HP on the hero (25% on monsters, 8% on Jarls); POISON ticks 2% max HP every half second for 6 s;
