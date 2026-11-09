@@ -56,7 +56,7 @@ body.is-touch.portrait #rot{display:block}
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V9 2026-11-09 COMPLETE';
+const VERSION = 'V10 2026-11-09 NEW MOBS';
 const W = 320, H = 176, TS = 16;
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -103,7 +103,8 @@ function drawRich(segs, cx, y, sc = 1) {
 // ================= Sprites (text grids) =================
 const PAL = {k:'#140c10',w:'#e8dcc0',g:'#a89878',r:'#c8402a',o:'#f08030',y:'#f8d048',b:'#6ec8e8',B:'#2e6a9a',
   t:'#4fb39a',T:'#2a6e60',p:'#7a4a9a',n:'#6a4028',N:'#3e2418',s:'#8a96a8',S:'#4a5260',G:'#6a8a5a',
-  e:'#7ff0ff',m:'#7a6a6a',M:'#4a3e40',f:'#d89a8a',P:'#e9c98f'};
+  e:'#7ff0ff',m:'#7a6a6a',M:'#4a3e40',f:'#d89a8a',P:'#e9c98f',
+  L:'#7cc850',l:'#3e7a32',Y:'#d8f8a0',R:'#7a1e1a',I:'#d8f4ff'};
 const GRIDS = {
 rat:`
 .........kkk....
@@ -184,6 +185,46 @@ slime:`
 ..krooooooooork.
 ...krrrrrrrrrk..
 ....kkkkkkkkk...`,
+spiderW:`
+.....kkkkkk.....
+....kSSSSSSk....
+...kSrSSSSrSk...
+...kSSSSSSSSk...
+.kk.kSSkkSSk.kk.
+kgk.kMMMMMMk.kgk
+kggkMMSMMSMMkggk
+.kgkMMMMMMMMkgk.
+..kkMMSMMSMMkk..
+...kkMMMMMMkk...
+..k.k.kkkk.k.k..
+.k..k......k..k.
+.k..k......k..k.
+kk.kk......kk.kk`,
+queen:`
+..........k..k..........
+.........kykkyk.........
+........kyMMMMyk........
+.......kMMrMMrMMk.......
+..kk...kMMMMMMMMk...kk..
+.k..k..kkMMMMMMkk..k..k.
+k....kkMMMMMMMMMMkk....k
+...kkMMpMMMMMMMMpMMkk...
+..k.kMMMMppMMppMMMMk.k..
+.k..kMMMMMMppMMMMMMk..k.
+k...kMMpMMMMMMMMpMMk...k
+...k.kMMMMMMMMMMMMk.k...
+..k...kkkkkkkkkkkk...k..
+.k..k..k..k..k..k..k..k.
+k..k..k..k....k..k..k..k`,
+egg:`
+..kkkk..
+.kwwwgk.
+kwwgwwgk
+kwgwwwwk
+kwwwwgwk
+kgwwgwwk
+.kgwwgk.
+..kkkk..`,
 wisp:`
 .......y........
 ......yo........
@@ -433,10 +474,13 @@ const TRAITS = {
 // elite = a special mob: gold, always two more traits, drops more loot
 const TRAIT_KEYS = Object.keys(TRAITS).filter(k => k !== 'elite'), BOSS_TRAITS = ['iron', 'frost', 'ember', 'swift', 'cursed'];
 // Floors 11 to 100 are generated from a seed: same floor, same layout, every time. Every 10th floor is a Jarl hall.
-const FLOORS = 100, BODIES = 'rbtasewhk';
+// new bodies are mixed in so each one shows up within the first floors past 10
+const FLOORS = 100, BODIES = 'rbtgasuewvhWk';
 const ADJ = ['SUNKEN', 'GLOOMY', 'RUNED', 'WAILING', 'COLD', 'FORGOTTEN', 'ASHEN', 'HOLLOW', 'FROZEN', 'ROTTING', 'SILENT', 'BLEAK', 'WEEPING', 'IRON', 'BLACK', 'DROWNED', 'BURIED'];
 const NOUN = ['CRYPT', 'CATACOMBS', 'OSSUARY', 'MINES', 'HOARD', 'HALLS', 'BARROW', 'VAULTS', 'DEEP', 'TOMBS', 'CAVES', 'GALLERY', 'SHRINE', 'PITS', 'CELLARS', 'WARRENS'];
-const GEN_TIPS = ['MIXED BLOOD. READ EACH TELL.', 'A TINTED FOE CARRIES A TRAIT.', 'CARVE PARTS. COOK THEM AT THE BONFIRE.', 'GIANTS HIT HARDER. ROLL MORE.',
+const GEN_TIPS = ['GREEN SLIMES HEAL FAST. KILL THEM IN ONE PUSH.', 'BLUE SLIMES SHRUG OFF LIGHT HITS. GO HEAVY.', 'A SWELLING RED SLIME WILL BURST. ROLL AWAY.',
+  "NEVER SWING INTO A SPIDER WARRIOR'S STANCE. GET BEHIND IT.", 'FALLEN THRALLS RISE AGAIN. CRUSH THE BONES WITH A HEAVY.', 'BLOCK LATE TO PARRY AN ARROW BACK.',
+  'RATS HUNT IN PACKS. LURE ONE AWAY.', 'MIXED BLOOD. READ EACH TELL.', 'A TINTED FOE CARRIES A TRAIT.', 'CARVE PARTS. COOK THEM AT THE BONFIRE.', 'GIANTS HIT HARDER. ROLL MORE.',
   'FROST FOES DRAIN STAMINA, EVEN ON BLOCK.', 'EMBER FOES BURN WHERE THEY FALL.', 'CURSED FOES HEAL WHEN THEY HIT YOU.', 'IRON FOES SHRUG OFF STAGGER.'];
 function seeded(s) { return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }
 function genFloor(n) {
@@ -468,7 +512,7 @@ function genFloor(n) {
     x += used + ri(2, 4);
   }
   for (let i = n > 40 ? 2 : 1; i > 0; i--) ops.push(['p', ri(12, w - 8), 8]);
-  const pool = BODIES.slice(0, Math.min(9, 3 + (n / 4 | 0))), count = Math.min(14, 5 + (n / 9 | 0)), stepX = (w - 19) / count;
+  const pool = BODIES.slice(0, Math.min(BODIES.length, 4 + (n / 3 | 0))), count = Math.min(14, 5 + (n / 9 | 0)), stepX = (w - 19) / count;
   const p1 = Math.min(.75, .2 + (n - 10) * .008), p2 = n > 40 ? Math.min(.4, (n - 40) * .008) : 0;
   for (let i = 0; i < count; i++) {
     const ch = pick(pool), y = ch === 'b' || ch === 'w' ? ri(2, 5) : ch === 's' ? (low ? 3 : 1) : 8;
@@ -487,6 +531,12 @@ function genFloor(n) {
     const ch = pick(n < 20 ? ['t'] : ['t', 'h', 'k']), x = w - 7;
     ops.push(['.', x, 8], [ch, x, 8]); mods[x + ',8'] = ['elite', 'giant', pick(TRAIT_KEYS.filter(k => k !== 'giant'))];
     tip = 'A CHAMPION GUARDS THE EXIT.';
+  }
+  // every floor ending in 7: the spider queen nests before the exit
+  if (n % 10 === 6) {
+    const x = w - 10;
+    ops.push(['.', x - 1, 7, 3, 2], ['#', x - 1, 9, 3], ['Q', x, 8]);
+    tip = 'THE SPIDER QUEEN NESTS HERE. SMASH HER EGGS FIRST.';
   }
   // odd floors run right to left: bonfire on the right, exit on the left
   return { name: pick(ADJ) + ' ' + pick(NOUN), mob: pool[pool.length - 1], theme, w, tip, ops, mods, gen: true, flip: n % 2 === 1 };
@@ -1053,6 +1103,9 @@ function sfx(n) { if (!AC || muted) return; try { SFX[n](); } catch (e) {} }
 // ================= Extra sprites and sounds =================
 const recolor = (src, map) => src.replace(/[A-Za-z]/g, ch => map[ch] || ch);
 SPR.wispDim = mkSprite(recolor(GRIDS.wisp, { y: 'g', o: 'm', r: 'M' }));
+SPR.slimeG = mkSprite(recolor(GRIDS.slime, { o: 'L', y: 'Y', r: 'l' }));
+SPR.slimeU = mkSprite(recolor(GRIDS.slime, { o: 'b', y: 'I', r: 'B' }));
+SPR.slimeV = mkSprite(recolor(GRIDS.slime, { o: 'r', y: 'f', r: 'R' }));
 Object.assign(SFX, {
   parry: () => { tone(1800, 1800, .08, .125, .2); tone(2400, 2400, .25, .25, .14, .04); },
   block: () => { tone(900, 700, .06, .125, .16); noiseHit(AC.currentTime, .12, .05, true, sfxG); },
@@ -1379,7 +1432,7 @@ function itemLine(id) {
   return 'DEF ' + Math.round(it.def * 100) + '%  ' + it.wt.toUpperCase();
 }
 // Cooking: monsters drop parts, the bonfire turns two parts into a meal. One meal at a time, it lasts until you die.
-const PART_OF = { r: 'meat', b: 'meat', s: 'meat', t: 'bone', a: 'bone', k: 'bone', h: 'bone', e: 'jelly', w: 'ash' };
+const PART_OF = { r: 'meat', b: 'meat', s: 'meat', W: 'meat', Q: 'meat', t: 'bone', a: 'bone', k: 'bone', h: 'bone', e: 'jelly', g: 'jelly', u: 'jelly', v: 'jelly', w: 'ash' };
 const PARTS = ['meat', 'bone', 'jelly', 'ash'];
 const MEALS = {
   roast: { name: 'HEARTH ROAST', need: { meat: 2 }, desc: 'MAX HP X1.3' },
@@ -1547,6 +1600,12 @@ const ETYPES = {
   w: { spr: 'wisp', name: 'TORCH WISPS', hp: 30, poise: 1, xp: 55, fly: true, puff: '#f8d048' },
   h: { spr: 'shambler', name: 'DRAUGR SHAMBLERS', hp: 120, poise: 60, xp: 90, puff: '#6a8a5a' },
   k: { spr: 'shield', name: 'SHIELDBEARERS', hp: 90, poise: 30, xp: 100, puff: '#6a8a5a' },
+  g: { spr: 'slimeG', name: 'GREEN SLIMES', hp: 40, poise: 5, xp: 50, light: true, puff: '#7cc850' },
+  u: { spr: 'slimeU', name: 'BLUE SLIMES', hp: 50, poise: 8, xp: 55, light: true, puff: '#6ec8e8' },
+  v: { spr: 'slimeV', name: 'RED SLIMES', hp: 44, poise: 5, xp: 60, light: true, puff: '#c8402a' },
+  W: { spr: 'spiderW', name: 'SPIDER WARRIORS', hp: 80, poise: 30, xp: 110, puff: '#4a3e40' },
+  Q: { spr: 'queen', name: 'SPIDER QUEEN', title: 'SPIDER QUEEN', hp: 260, poise: 70, xp: 600, puff: '#7a4a9a' },
+  o: { spr: 'egg', name: 'SPIDER EGGS', hp: 12, poise: 1, xp: 4, puff: '#e8e8e8' },
   J: { spr: 'jarl', name: 'THE DRAUGR JARL', hp: 380, poise: 100, xp: 1500, puff: '#6ec8e8' }
 };
 function makeEnemy(ch, tx, ty, extra) {
@@ -1576,6 +1635,7 @@ function applyTraits(e, tr) {
     if (t.sc) { const ow = e.w, oh = e.h; e.sc = t.sc; e.w = Math.round(ow * t.sc); e.h = Math.round(oh * t.sc); e.x -= (e.w - ow) / 2; if (e.grav) e.y -= e.h - oh; e.homeY = e.baseY = e.y; } }
   e.hp = e.maxhp = Math.round(e.maxhp * hp); e.xp = Math.round(e.xp * xp); e.dmgMul = dm; e.pmax = Math.round(e.d.poise * po); e.poise = e.pmax;
   e.tname = e.tr.map(k => TRAITS[k].name).join(' ');
+  if (e.d.title) e.tname = (e.tname ? e.tname + ' ' : '') + e.d.title;
   if (e.ch === 'J' && e.tr.length) e.bname = e.tname + ' JARL';
   return e;
 }
@@ -1798,7 +1858,8 @@ function hitEnemy(e, heavy, spell) {
     P.stam -= 12; P.stamDelay = 40; P.vx = -P.face * 1.6; return;
   }
   if (e.ch === 'w' && !e.vuln) { ftext(ecx, e.y - 6, 'NO EFFECT', '#a8a8b0'); sfx('clang'); spark(ecx, e.y + 6, '#f8d048', 4); return; }
-  let dmg = spell ? spell.dmg : (heavy ? w.h : w.l) * dmgMult(), crit = false;
+  const mr = mobRule(e, heavy, spell, frontal); if (!mr) return; // each mob's own combat rule (see Enemy mechanics)
+  let dmg = (spell ? spell.dmg : (heavy ? w.h : w.l) * dmgMult()) * mr.m, crit = false;
   if (e.parried && e.st === 'stag') { dmg *= 3; crit = true; e.parried = false; e.t2 = Math.min(e.t2, 24); }
   if (e.st === 'gbrk') dmg *= 1.5;
   if (!spell && !crit && Math.random() < critChance()) { dmg *= 1.5; crit = true; } // DEX: lucky crits
@@ -1807,12 +1868,13 @@ function hitEnemy(e, heavy, spell) {
   ftext(ecx, e.y - 4, crit ? 'CRITICAL ' + dmg : dmg, crit ? '#f08030' : '#f4ead6');
   sfx('hit'); hitstop = crit ? 9 : heavy ? 5 : 3; shake = Math.max(shake, crit ? 5 : 2);
   spark(ecx, e.y + e.h / 2, '#fff2c0', crit ? 12 : 5);
-  e.poise -= spell ? 20 : heavy ? w.poise[1] : w.poise[0]; e.poiseT = 100;
+  e.poise -= (spell ? 20 : heavy ? w.poise[1] : w.poise[0]) * mr.p; e.poiseT = 100;
   if (e.poise <= 0 && e.st !== 'stag' && e.hp > 0) { e.st = 'stag'; e.t2 = e.ch === 'J' ? 50 : 36; e.atk = null; e.poise = e.pmax || e.d.poise; }
   if (e.d.light && e.st !== 'act') e.vx = (spell ? Math.sign(spell.vx) : P.face) * 1.6;
   if (e.hp <= 0) killEnemy(e);
 }
 function killEnemy(e) {
+  if (mobDeath(e)) return;
   e.dead = true;
   const big = e.ch === 'J';
   shatter(e); puff(e.x + e.w / 2, e.y + e.h / 2, e.d.puff, big ? 40 : 14, big ? 2.6 : 1.8); puff(e.x + e.w / 2, e.y + e.h / 2, '#140c10', 6);
@@ -1858,7 +1920,29 @@ function aiCtx(e) {
   return { dx, dy, adx: Math.abs(dx), ady: Math.abs(dy), sx: Math.sign(dx) || 1, dist: Math.hypot(dx, dy) };
 }
 function ledgeAhead(e) { const fx = e.face > 0 ? e.x + e.w + 1 : e.x - 1; return !groundAt(fx, e.y + e.h + 2); }
-function walk(e, spd) { e.vx = e.face * spd; if (e.onGround && ledgeAhead(e)) e.vx = 0; }
+// Walk toward where the mob faces. Walkers hop out of pits and over low walls, jump up to a ledge you stand on,
+// and step down off a ledge when you are below. Before this they stood still at every wall and got stuck in dips.
+function walk(e, spd) {
+  e.vx = e.face * spd;
+  if (e.ch === 'J') { if (e.onGround && ledgeAhead(e)) e.vx = 0; return; }
+  if (e.hopCd > 0) e.hopCd--;
+  if (!e.onGround) { if (e.hopT > 0) { e.hopT--; e.vx = e.face * Math.max(spd, .8); } return; }
+  e.hopT = 0;
+  const fx = e.face > 0 ? e.x + e.w + 1 : e.x - 2, feet = e.y + e.h, pFeet = P.y + P.h;
+  if (rectSolid(fx, e.y, 1, e.h - 1)) { if (!(e.hopCd > 0)) hopUp(e, fx); else e.vx = 0; return; }
+  if (P.onGround && pFeet < feet - 20 && pFeet > feet - 50 && Math.abs(P.x + P.w / 2 - e.x - e.w / 2) < 40 && !(e.hopCd > 0) && !rectSolid(e.x, e.y - 40, e.w, 40)) { hop(e, 5.2); return; }
+  if (ledgeAhead(e)) {
+    let down = false;
+    if (pFeet > feet + 8) for (let k = 1; k <= 4 && !down; k++) down = groundAt(fx, feet + 2 + k * TS);
+    if (!down) e.vx = 0;
+  }
+}
+function hop(e, v) { e.vy = -v; e.hopT = 50; e.hopCd = 40; e.onGround = false; dust(e.x + e.w / 2, e.y + e.h - 1, 3, 4); }
+// wall ahead: hop it if it is one or two tiles high and there is head room, else wait
+function hopUp(e, fx) {
+  for (let k = 1; k <= 2; k++) if (!rectSolid(fx, e.y - k * TS, 1, e.h - 1) && !rectSolid(e.x, e.y - k * TS, e.w, k * TS)) { hop(e, k === 1 ? 3.9 : 5.1); return; }
+  e.vx = 0;
+}
 function backBlocked(e) { const bx = e.face > 0 ? e.x - 3 : e.x + e.w + 3; return !groundAt(bx, e.y + e.h + 2) || rectSolid(bx - 1, e.y, 2, e.h - 2); }
 function physics(e) {
   if (e.grav) { const air = !e.onGround, fv = e.vy; e.vy = Math.min(e.vy + 0.28, 5); moveBody(e); if (air && e.onGround && fv > 1.5) e.land = 8; }
@@ -1876,7 +1960,7 @@ function runAtk(e, c) {
     if (--e.t2 <= 0) { e.st = 'act'; e.t2 = a.act; e.hitDone = false; if (a.start) a.start(e, c); }
   } else if (e.st === 'act') {
     if (a.during) a.during(e, c, 'act');
-    if (!e.hitDone && a.box) { const b = a.box(e); if (b && overlap(b, P)) { e.hitDone = true; traitHit(e, resolveHit(e, a)); } }
+    if (!e.hitDone && a.box) { const b = a.box(e); if (b && overlap(b, P)) { e.hitDone = true; const r = resolveHit(e, a); traitHit(e, r); if (a.fx && (r === 'hit' || (r === 'block' && a.fxBlock))) mobFx(a.fx, a.fxN || 40); } }
     if (e.st === 'act' && (--e.t2 <= 0 || e.endAct)) { e.endAct = false; e.st = 'rec'; e.t2 = Math.round(a.rec * e.spd); if (a.end) a.end(e, c); }
   } else if (e.st === 'rec') {
     if (a.during) a.during(e, c, 'rec'); else e.vx *= .8;
@@ -1897,7 +1981,11 @@ const AI = {};
 const RAT_LUNGE = { wind: 24, act: 12, rec: 38, dmg: 12, kb: 1, cd: 55,
   start(e) { e.vx = e.face * 3; e.vy = -1; }, during(e, c, ph) { if (ph === 'act') e.vx = e.face * 3; else e.vx *= .8; },
   box: e => ({ x: e.x - 2, y: e.y - 3, w: e.w + 4, h: e.h + 4 }) };
+// Pack: a rat near another rat winds up and recovers much faster. Alone it is slow. Lure one away from the pack.
 AI.r = (e, c) => {
+  if (e.spd0 === undefined) e.spd0 = e.spd;
+  e.pack = enemies.some(o => o !== e && o.ch === 'r' && !o.dead && Math.abs(o.x - e.x) < 64 && Math.abs(o.y - e.y) < 24);
+  e.spd = e.spd0 * (e.pack ? .65 : 1.15);
   if (c.adx < 150 && c.ady < 40) e.agro = true;
   if (e.agro) { e.face = c.sx; if (c.adx > 46) walk(e, .55); else e.vx = 0; if (c.adx < 64 && c.ady < 18 && --e.cd <= 0) startAtk(e, RAT_LUNGE); }
   else { e.vx = e.face * .25; if (e.hitWall || (e.onGround && ledgeAhead(e))) e.face *= -1; }
@@ -1952,12 +2040,15 @@ AI.s = (e, c) => {
   if (!e.mode) e.mode = 'ceil';
   if (e.mode === 'ceil') {
     e.grav = false; e.vx = e.vy = 0; e.y = e.homeY; if (e.cd2 > 0) e.cd2--;
+    if (e.fled && e.hp < e.maxhp * .8 && e.t % 6 === 0) { e.hp++; if (e.t % 36 === 0) puff(e.x + e.w / 2, e.y + e.h, '#7fe08a', 3); } // heals up on its thread
     if (c.adx < 14 && c.dy > 0 && !(e.cd2 > 0)) { startAtk(e, SP_DROP); return; }
     if (c.adx < 120 && c.dy > 0 && --e.cd <= 0) startAtk(e, SP_SPIT);
   } else if (e.mode === 'ground') {
     e.grav = true; e.groundT++; e.face = c.sx; e.agro = true;
     if (c.adx > 20) walk(e, .35); else e.vx = 0;
     if (c.adx < 24 && c.ady < 20 && --e.cd <= 0) { startAtk(e, SP_BITE); return; }
+    if (e.brood) return; // hatchlings have no thread
+    if (!e.fled && e.hp < e.maxhp * .45) { e.fled = true; e.mode = 'climb'; tell(e, 'RETREATS', '#c8a0e8'); return; }
     if (e.groundT > 260) e.mode = 'climb';
   } else {
     e.grav = false; e.vx = 0; e.vy = -.9;
@@ -1966,7 +2057,7 @@ AI.s = (e, c) => {
 };
 // 6. Ember Slime: hops onto you, leaves fire that ignores blocking, splits when killed.
 const SLIME_HOP = { wind: 22, act: 70, rec: 34, dmg: 14, kb: 1.5, cd: 40,
-  start(e, c) { e.vy = e.small ? -3 : -3.6; e.vx = clamp(c.dx / 28, -1.6, 1.6); e.airT = 0; sfx('hop'); },
+  start(e, c) { e.vy = e.small ? -3.4 : -3.6; e.vx = clamp(c.dx / 28, -1.6, 1.6); e.airT = 0; sfx('hop'); },
   during(e, c, ph) {
     if (ph === 'act') { e.airT++; if (e.onGround && e.airT > 4) { e.endAct = true; e.vx = 0; hazards.push({ x: e.x + e.w / 2 - 8, y: e.y + e.h - 5, w: 16, h: 5, life: e.small ? 70 : 130 }); } }
     else e.vx *= .7;
@@ -2046,9 +2137,176 @@ AI.J = (e, c) => {
   if (c.adx < 150) return startAtk(e, onFloor && Math.random() < .5 ? J_CHARGE : J_LEAP);
   return startAtk(e, onFloor ? J_WAVE : J_LEAP);
 };
+// 11. Green Slime: poison hop, poison puddles, heals fast when left alone. Lesson: commit, kill it in one push.
+const slimeLand = (e, kind, life) => hazards.push({ kind, x: e.x + e.w / 2 - 9, y: e.y + e.h - 5, w: 18, h: 5, life });
+const G_HOP = Object.assign({}, SLIME_HOP, { dmg: 10, fx: 'poison', fxN: 45, noFx: true,
+  during(e, c, ph) {
+    if (ph === 'act') { e.airT++; if (e.onGround && e.airT > 4) { e.endAct = true; e.vx = 0; slimeLand(e, 'poison', 170); } }
+    else e.vx *= .7;
+  } });
+AI.g = (e, c) => {
+  e.vx *= .7;
+  if (e.t - (e.hitT ?? -999) > 100 && e.hp < e.maxhp && e.t % 4 === 0) { e.hp++; if (e.t % 24 === 0) puff(e.x + e.w / 2, e.y + 2, '#7fe08a', 2); }
+  if (c.adx < 180 && c.ady < 60) e.agro = true; if (!e.agro) return;
+  e.face = c.sx; if (e.onGround && --e.cd <= 0) startAtk(e, G_HOP);
+};
+// 12. Blue Slime: ice skin. Light hits barely scratch it, heavy hits and fire crack it. Lands on ice that freezes your feet.
+const U_HOP = Object.assign({}, SLIME_HOP, { dmg: 13, fx: 'frost', fxN: 50, fxBlock: true, wind: 28, noFx: true,
+  during(e, c, ph) {
+    if (ph === 'act') { e.airT++; if (e.onGround && e.airT > 4) { e.endAct = true; e.vx = 0; slimeLand(e, 'ice', 200); } }
+    else e.vx *= .7;
+  } });
+AI.u = (e, c) => { e.vx *= .7; if (c.adx < 180 && c.ady < 60) e.agro = true; if (!e.agro) return; e.face = c.sx; if (e.onGround && --e.cd <= 0) startAtk(e, U_HOP); };
+// 13. Red Slime: quick double hops. Hurt below a third, it swells (red flash, cannot be hurt) and bursts. Lesson: roll away.
+const V_HOP2 = Object.assign({}, SLIME_HOP, { wind: 10, rec: 40, dmg: 12, noFx: true, during: SLIME_HOP.during, next: null,
+  start(e, c) { e.vy = -3.2; e.vx = clamp(c.dx / 24, -1.9, 1.9); e.airT = 0; sfx('hop'); } });
+const V_HOP = Object.assign({}, V_HOP2, { wind: 16, rec: 6, next: () => (Math.random() < .6 ? V_HOP2 : null) });
+// red slimes leave no fire, so their hops share the plain landing
+V_HOP2.during = V_HOP.during = (e, c, ph) => { if (ph === 'act') { e.airT++; if (e.onGround && e.airT > 4) { e.endAct = true; e.vx = 0; } } else e.vx *= .7; };
+const V_POP = { wind: 80, act: 3, rec: 1, dmg: 30, unblock: true, red: true, kb: 3, cd: 10, noFx: true,
+  box: e => ({ x: e.x - 26, y: e.y - 20, w: e.w + 52, h: e.h + 24 }),
+  onWind(e) { tell(e, 'SWELLING', '#ff6040'); sfx('screech'); },
+  during(e) { e.vx = 0; },
+  start(e) { shake = 7; sfx('boom'); puff(e.x + e.w / 2, e.y + e.h / 2, '#c8402a', 30, 2.6); puff(e.x + e.w / 2, e.y + e.h / 2, '#7a1e1a', 12); },
+  end(e) { e.hp = 0; killEnemy(e); } };
+AI.v = (e, c) => {
+  e.vx *= .7; if (c.adx < 180 && c.ady < 60) e.agro = true; if (!e.agro) return;
+  e.face = c.sx;
+  if (!e.popping && e.hp <= e.maxhp * .35) { e.popping = true; startAtk(e, V_POP); return; }
+  if (e.onGround && --e.cd <= 0) startAtk(e, V_HOP);
+};
+// 14. Spider Warrior: two-slash combo, pounces from range, and a counter stance. Hitting the stance from the front
+// gets you a red riposte. Wait it out, hit it with fire, or roll behind it.
+const W_SLASH2 = { wind: 12, act: 6, rec: 40, dmg: 16, parry: true, kb: 1.4, box: frontBox(20), start(e) { e.vx = e.face * 1.4; sfx('swing'); }, cd: 40 };
+const W_SLASH1 = Object.assign({}, W_SLASH2, { wind: 22, rec: 8, cd: 10, next: () => W_SLASH2 });
+const W_POUNCE = { wind: 26, act: 90, rec: 30, dmg: 18, kb: 2, cd: 50, noFx: true,
+  start(e, c) { e.vy = -4.2; e.vx = clamp(c.dx / 30, -2.6, 2.6); e.airT = 0; sfx('hop'); },
+  during(e, c, ph) { if (ph === 'act') { e.airT++; if (e.onGround && e.airT > 4) { e.endAct = true; e.vx = 0; } } else e.vx *= .7; },
+  box: e => (e.vy > 0 ? e : null) };
+const W_STANCE = { wind: 8, act: 100, rec: 14, cd: 30, noFx: true, onWind(e) { tell(e, 'STANCE', '#9fe8ff'); sfx('clang'); }, during(e) { e.vx = 0; } };
+const W_RIPOSTE = { wind: 9, act: 8, rec: 34, dmg: 26, unblock: true, red: true, kb: 2.6, box: frontBox(26), face: false, start(e) { e.vx = e.face * 2.4; sfx('swing'); }, cd: 40 };
+AI.W = (e, c) => {
+  if (c.adx < 170 && c.ady < 60) e.agro = true; if (!e.agro) { e.vx = 0; return; }
+  e.face = c.sx; if (c.adx > 24) walk(e, .5); else e.vx = 0;
+  if (--e.cd > 0) return;
+  if (c.adx < 34 && c.ady < 24) return startAtk(e, Math.random() < .35 ? W_STANCE : W_SLASH1);
+  if (c.adx < 110 && c.ady < 50 && e.onGround) return startAtk(e, W_POUNCE);
+};
+// 15. Spider Queen: lays eggs that hatch into spiderlings. While any of her eggs live, the brood shields her (quarter damage).
+// Web fan (block it), parryable bite, red leg sweep along the floor (jump or roll).
+const Q_BITE = { wind: 24, act: 6, rec: 36, dmg: 22, parry: true, kb: 2, box: frontBox(22), start(e) { e.vx = e.face * 1.2; sfx('swing'); }, cd: 40 };
+const Q_SWEEP = { wind: 40, act: 10, rec: 44, dmg: 28, unblock: true, red: true, kb: 3, cd: 50,
+  box: e => ({ x: e.x - 24, y: e.y + e.h - 10, w: e.w + 48, h: 10 }),
+  start(e) { shake = 5; sfx('thud'); dust(e.x + e.w / 2, e.y + e.h - 1, 12); } };
+const Q_SPRAY = { wind: 34, act: 2, rec: 40, cd: 60, start(e) {
+  const ox = e.x + e.w / 2 + e.face * 8, oy = e.y + 6, a0 = Math.atan2(P.y + 7 - oy, P.x + P.w / 2 - ox);
+  for (const da of [-.28, 0, .28]) projs.push({ kind: 'web', x: ox - 3, y: oy - 3, w: 6, h: 6, vx: Math.cos(a0 + da) * 2.1, vy: Math.sin(a0 + da) * 2.1, life: 200, dmg: 5 });
+  sfx('shoot'); } };
+const Q_LAY = { wind: 30, act: 2, rec: 30, cd: 50, start(e) {
+  sfx('hop'); tell(e, 'LAYS EGGS', '#e8e8e8');
+  for (const dir of [-1, 1]) {
+    const o = makeEnemy('o', 0, 0, { mom: e, summoned: true, agro: true, hatch: 360 });
+    o.x = e.x + e.w / 2 - o.w / 2 + dir * 6; o.y = e.y + e.h - o.h - 4; o.vx = dir * 1.4; o.vy = -2.4; enemies.push(applyTraits(o));
+  } } };
+const eggsOf = e => enemies.filter(o => o.mom === e && !o.dead).length;
+AI.Q = (e, c) => {
+  if (c.adx < 200 && c.ady < 80) e.agro = true; if (!e.agro) { e.vx = 0; return; }
+  e.face = c.sx; if (c.adx > 30) walk(e, .36); else e.vx = 0;
+  if (--e.cd > 0) return;
+  if (eggsOf(e) < 2 && e.t - (e.layT ?? -999) > 420) { e.layT = e.t; return startAtk(e, Q_LAY); }
+  if (c.adx < 40 && c.ady < 30) return startAtk(e, Math.random() < .4 ? Q_SWEEP : Q_BITE);
+  return startAtk(e, Q_SPRAY);
+};
+// spider egg: wobbles faster as it gets close to hatching
+AI.o = (e) => {
+  e.vx *= .8;
+  if (--e.hatch > 0) return;
+  e.dead = true; puff(e.x + e.w / 2, e.y + e.h / 2, '#e8e8e8', 10); sfx('hop');
+  const s = makeEnemy('s', 0, 0, { small: true, brood: true, mode: 'ground', agro: true, summoned: true, cd: 40 });
+  s.x = e.x + e.w / 2 - s.w / 2; s.y = e.y + e.h - s.h; s.grav = true; enemies.push(applyTraits(s));
+};
+
+// ---- the special rule each mob brings to a fight ----
+// one floating line per mob at a time, so a flurry of hits does not spam text
+function tell(e, s, col) { if (e.t - (e.tellT ?? -99) > 45) { e.tellT = e.t; ftext(e.x + e.w / 2, e.y - 10, s, col); } }
+const ONE = { m: 1, p: 1 };
+// Called on every hero hit, before damage. Return null to cancel the hit, or { m: damage x, p: poise damage x }.
+function mobRule(e, heavy, spell, frontal) {
+  e.hitT = e.t;
+  const cx = e.x + e.w / 2;
+  switch (e.ch) {
+    case 'r': // a hurt rat squeals: the pack comes running
+      for (const o of enemies) if (o.ch === 'r' && !o.dead && Math.abs(o.x - e.x) < 140) o.agro = true;
+      return ONE;
+    case 'b': // too quick in the air: only the dive, the daze or fire can catch it
+      if (!spell && !e.dazed && e.st !== 'act' && e.st !== 'stag') { tell(e, 'MISS', '#a8a8b0'); e.vy = -1.4; e.vx = (cx < P.x + P.w / 2 ? -1 : 1) * 1.4; sfx('screech'); return null; }
+      return ONE;
+    case 't': // a fallen thrall is a pile of bones until it rises again
+      if (e.st !== 'bones') return ONE;
+      if (heavy || spell) { e.crushed = true; e.hp = 0; ftext(cx, e.y - 10, 'CRUSHED', '#f2c14e'); sfx('gbreak'); shake = Math.max(shake, 4); killEnemy(e); }
+      else { tell(e, 'USE A HEAVY', '#a8a8b0'); sfx('clang'); spark(cx, e.y + e.h - 2, '#e8dcc0', 4); }
+      return null;
+    case 'e': // fire feeds it
+      if (spell) { const h = Math.round(spell.dmg / 2); e.hp = Math.min(e.maxhp, e.hp + h); ftext(cx, e.y - 8, '+' + h, '#f08030'); tell(e, 'FIRE FEEDS IT', '#f08030'); return null; }
+      return ONE;
+    case 'h': // does not flinch while winding up; wide open after its slam
+      if (e.st === 'wind') { tell(e, 'UNFLINCHING', '#a8a8b0'); return { m: 1, p: 0 }; }
+      if (e.st === 'rec' && e.atk === SH_SLAM) { tell(e, 'EXPOSED', '#f2c14e'); return { m: 2, p: 1.5 }; }
+      return ONE;
+    case 'u': // ice skin
+      if (spell) { tell(e, 'MELTS', '#f08030'); return { m: 1.5, p: 1 }; }
+      if (!heavy) { tell(e, 'TOO HARD', '#b8ecff'); sfx('clang'); return { m: .25, p: 0 }; }
+      spark(cx, e.y + 4, '#d8f4ff', 8); return { m: 1.25, p: 2 };
+    case 'v':
+      if (e.atk === V_POP) { tell(e, 'SWELLING', '#ff6040'); return null; }
+      return ONE;
+    case 'W': // the counter stance
+      if (e.atk === W_STANCE && e.st === 'act') {
+        if (spell) { e.st = 'stag'; e.t2 = 60; e.atk = null; tell(e, 'STANCE BROKEN', '#f2c14e'); return ONE; }
+        if (frontal) { ftext(cx, e.y - 10, 'COUNTER!', '#ff6040'); sfx('parry'); startAtk(e, W_RIPOSTE); return null; }
+        tell(e, 'EXPOSED', '#f2c14e'); return { m: 2, p: 2 };
+      }
+      return ONE;
+    case 'Q': // her brood shields her
+      if (eggsOf(e)) { tell(e, 'THE BROOD SHIELDS HER', '#c8a0e8'); return { m: .25, p: .25 }; }
+      return ONE;
+  }
+  return ONE;
+}
+// Called when a mob hits 0 HP. Return true to keep it alive (thralls fall to bones the first time).
+function mobDeath(e) {
+  if (e.ch === 't' && !e.reformed && !e.crushed && !e.summoned && !e.small) {
+    e.hp = 1; e.st = 'bones'; e.t2 = 260; e.atk = null; e.vx = 0; e.flash = 0;
+    ftext(e.x + e.w / 2, e.y - 10, 'IT WILL RISE', '#a8a8b0'); sfx('kill'); puff(e.x + e.w / 2, e.y + e.h - 4, '#e8dcc0', 10);
+    return true;
+  }
+  if (e.ch === 'Q') for (const o of enemies) if (o.mom === e && !o.dead) { o.dead = true; puff(o.x + o.w / 2, o.y + o.h / 2, '#e8e8e8', 8); }
+  return false;
+}
+function updateBones(e) {
+  e.vx *= .8; physics(e);
+  if (e.t2 < 60 && e.t % 6 === 0) spark(e.x + e.w / 2 + rnd(-4, 4), e.y + e.h - 2, '#e8dcc0', 1);
+  if (--e.t2 > 0) return;
+  e.st = 'idle'; e.reformed = true; e.hp = Math.round(e.maxhp * .5); e.cd = 40; e.agro = true; e.flash = 10;
+  ftext(e.x + e.w / 2, e.y - 10, 'RISES AGAIN', '#e8574a'); sfx('roar'); puff(e.x + e.w / 2, e.y + e.h / 2, '#e8dcc0', 12);
+}
+// Status from mob attacks and puddles. Uses the shared status system (addFx) when the game has it, else a small local one.
+function mobFx(kind, amt) {
+  if (P.state === 'dead') return;
+  if (typeof addFx === 'function') { addFx(P, kind, amt); return; }
+  if (kind === 'poison') { if (!(P.poisT > 0)) ftext(P.x + P.w / 2, P.y - 12, 'POISONED', '#7cc850'); P.poisT = Math.max(P.poisT || 0, 240); }
+  else if (kind === 'frost') { if (!(P.webT > 0)) ftext(P.x + P.w / 2, P.y - 12, 'FROZEN FEET', '#b8ecff'); P.webT = Math.max(P.webT, 70); }
+}
+function tickMobFx() {
+  if (!(P.poisT > 0) || P.state === 'dead') return;
+  P.poisT--;
+  if (P.poisT % 40 === 0 && P.hp > 1) { const d = Math.min(P.hp - 1, Math.round(2 * floorDmg())); P.hp -= d; ftext(P.x + P.w / 2, P.y - 4, d, '#7cc850'); }
+  if (frameN % 10 === 0) particles.push({ x: P.x + rnd(0, P.w), y: P.y + rnd(0, 6), vx: 0, vy: -rnd(.2, .5), life: 18, c: '#7cc850', g: 0, s: 1 });
+}
 function updateEnemy(e) {
   e.t++; if (e.flash > 0) e.flash--; if (e.showBar > 0) e.showBar--; if (e.land > 0) e.land--;
   if (e.poiseT > 0) e.poiseT--; else e.poise = e.d.poise;
+  if (e.st === 'bones') { updateBones(e); return; }
   if (e.st === 'stag' || e.st === 'gbrk') {
     e.vx *= .85; if (!e.grav) e.vy = e.ch === 'w' || e.ch === 'b' ? .2 : 0; physics(e);
     if (--e.t2 <= 0) { e.st = 'idle'; e.parried = false; e.cd = 25; e.atk = null; }
@@ -2064,6 +2322,7 @@ function updateEnemy(e) {
 function updateWorld() {
   updatePlayer();
   if (state !== 'play') return;
+  tickMobFx();
   const viewC = camX + W / 2;
   for (const e of enemies) {
     if (e.dead) continue;
@@ -2074,7 +2333,7 @@ function updateWorld() {
   for (const pr of projs) {
     pr.x += pr.vx; pr.y += pr.vy; pr.life--;
     if (pr.mine) {
-      if (frameN % 2 === 0) particles.push({ x: pr.x + 3 - Math.sign(pr.vx) * 3, y: pr.y + rnd(1, 5), vx: -pr.vx * .1, vy: -rnd(.1, .5), life: 14, c: Math.random() < .5 ? '#f08030' : '#f8d048', g: 0, s: 1 });
+      if (pr.kind === 'fireball' && frameN % 2 === 0) particles.push({ x: pr.x + 3 - Math.sign(pr.vx) * 3, y: pr.y + rnd(1, 5), vx: -pr.vx * .1, vy: -rnd(.1, .5), life: 14, c: Math.random() < .5 ? '#f08030' : '#f8d048', g: 0, s: 1 });
       const tgt = enemies.find(e => !e.dead && e.st !== 'sleep' && overlap(pr, e));
       if (tgt) hitEnemy(tgt, false, { dmg: pr.dmg, x: pr.x + 3 - pr.vx * 4, vx: pr.vx });
       if (tgt || rectSolid(pr.x, pr.y, pr.w, pr.h) || pr.life <= 0) { pr.dead = true; puff(pr.x + 3, pr.y + 3, '#f08030', 10); if (!tgt) sfx('boom'); }
@@ -2086,6 +2345,12 @@ function updateWorld() {
       if (frameN % 3 === 0) particles.push({ x: pr.x + rnd(0, 8), y: pr.y + rnd(0, 6), vx: 0, vy: -rnd(.2, .6), life: 16, c: '#b8ecff', g: 0, s: 1 });
     }
     if (pr.life <= 0) pr.dead = true;
+    // a parry-timed block sends an arrow back at whoever shot it
+    if (!pr.dead && pr.kind === 'arrow' && overlap(pr, P) && P.blocking && P.iframes <= 0 && P.blockT <= SHD().parry && Math.sign(pr.vx) === -P.face) {
+      pr.mine = true; pr.vx = -pr.vx * 1.4; pr.vy = -pr.vy * .3; pr.dmg = Math.round(40 * floorHp()); pr.life = 140;
+      ftext(P.x + P.w / 2, P.y - 10, 'REFLECT!', '#f2c14e'); sfx('parry'); spark(P.x + P.w / 2 + P.face * 6, P.y + 6, '#fff2c0', 8); hitstop = 5;
+      continue;
+    }
     if (!pr.dead && !pr.hitP && overlap(pr, P)) {
       const r = resolveHit(pr, { dmg: pr.dmg, unblock: pr.kind === 'frost', kb: pr.kind === 'frost' ? 2 : 1, web: pr.kind === 'web' });
       if (r === 'block' || r === 'hit' || r === 'gbreak') { if (pr.kind === 'frost') pr.hitP = true; else pr.dead = true; }
@@ -2094,7 +2359,12 @@ function updateWorld() {
   projs = projs.filter(p => !p.dead);
   for (const h of hazards) {
     h.life--;
-    if (overlap(h, P) && P.fireCd <= 0 && P.iframes <= 0) { P.fireCd = 30; resolveHit(h, { dmg: 7, unblock: true, kb: .3, noStagger: true }); }
+    if (overlap(h, P) && P.fireCd <= 0 && P.iframes <= 0) {
+      P.fireCd = 30;
+      if (h.kind === 'poison') { mobFx('poison', 30); resolveHit(h, { dmg: 2, unblock: true, kb: .2, noStagger: true }); }
+      else if (h.kind === 'ice') mobFx('frost', 35);
+      else resolveHit(h, { dmg: 7, unblock: true, kb: .3, noStagger: true });
+    }
   }
   hazards = hazards.filter(h => h.life > 0);
   for (const pk of pickups) {
@@ -2513,11 +2783,17 @@ function drawWorld() {
     else ctx.drawImage((pk.kind === 'shard' ? SPR.coin : SPR.potion).c[0], Math.round(pk.x - camX), Math.round(pk.y + bob));
   }
   for (const h of hazards) {
-    for (let i = 0; i < 6; i++) {
-      const fx = h.x + rnd(0, h.w), fh = rnd(2, 6) * Math.min(1, h.life / 30);
-      ctx.fillStyle = Math.random() < .5 ? '#f08030' : '#f8d048'; ctx.fillRect(Math.round(fx - camX), Math.round(h.y + h.h - fh), 2, Math.round(fh));
+    if (h.kind === 'ice') { // flat ice sheet with a glint
+      ctx.globalAlpha = Math.min(1, h.life / 30); ctx.fillStyle = '#6ec8e8'; ctx.fillRect(Math.round(h.x - camX), Math.round(h.y + h.h - 2), h.w, 2);
+      ctx.fillStyle = '#d8f4ff'; ctx.fillRect(Math.round(h.x + ((frameN / 3) % h.w) - camX), Math.round(h.y + h.h - 2), 2, 1); ctx.globalAlpha = 1;
+      continue;
     }
-    lights.push({ x: h.x + 8 - camX, y: h.y, r: 22, c: 'rgba(255,120,40,.15)' });
+    const cols = h.kind === 'poison' ? ['#7cc850', '#3e7a32'] : ['#f08030', '#f8d048'];
+    for (let i = 0; i < 6; i++) {
+      const fx = h.x + rnd(0, h.w), fh = rnd(2, h.kind === 'poison' ? 3 : 6) * Math.min(1, h.life / 30);
+      ctx.fillStyle = Math.random() < .5 ? cols[0] : cols[1]; ctx.fillRect(Math.round(fx - camX), Math.round(h.y + h.h - fh), 2, Math.round(fh));
+    }
+    lights.push({ x: h.x + 8 - camX, y: h.y, r: 22, c: h.kind === 'poison' ? 'rgba(120,220,80,.12)' : 'rgba(255,120,40,.15)' });
   }
   // enemies
   for (const e of enemies) {
@@ -2526,7 +2802,12 @@ function drawWorld() {
     let spr = e.spr, tint = enemyTint(e), ox = 0, oy = 0;
     if (e.ch === 'b' && !e.dazed && ((e.t / 8) | 0) % 2) spr = SPR.bat2;
     if (e.ch === 'w' && e.vuln) spr = SPR.wispDim;
-    if (e.grav && !e.small && e.onGround && Math.abs(e.vx) > .2 && 'rthakJ'.includes(e.ch)) spr = legFrames(spr)[((e.t / 8) | 0) % 2];
+    if (e.grav && !e.small && e.onGround && Math.abs(e.vx) > .2 && 'rthakJWQ'.includes(e.ch)) spr = legFrames(spr)[((e.t / 8) | 0) % 2];
+    if (e.st === 'bones') { // a flat heap of its own bones; shakes before it rises
+      drawSprScaled(spr, cx + (e.t2 < 60 ? rnd(-1, 1) : 0), by, e.face, e.flash > 0 && e.flash % 4 < 2 ? 'w' : false, e.sc || 1, (e.sc || 1) * .3);
+      continue;
+    }
+    if (e.ch === 'o' && e.hatch < 120) ox = Math.sin(e.t * .6) * (e.hatch < 50 ? 1.5 : .8);
     if (e.ch === 's' && (e.mode === 'ceil' || e.mode === 'climb' || (e.st === 'act' && e.atk === SP_DROP))) {
       const top = Math.floor(e.homeY / TS) * TS; ctx.fillStyle = '#8a8088'; ctx.fillRect(Math.round(cx - camX), top, 1, Math.max(0, Math.round(e.y - top + 1)));
     }
@@ -2534,18 +2815,22 @@ function drawWorld() {
     if (e.st === 'stag' || e.st === 'gbrk') ox = Math.sin(e.t) > 0 ? 1 : -1;
     if (e.grav && Math.abs(e.vx) > .2 && ((e.t / 12) | 0) % 2) oy -= 1;
     if (!tint && e.tr && e.tr.length) spr = tinted(spr, TRAITS[e.tr[0]].col);
-    const [qx, qy] = enemyScale(e), sc = e.small ? .6 : e.sc || 1;
+    let [qx, qy] = enemyScale(e), sc = e.small ? .6 : e.sc || 1;
+    if (e.atk === V_POP && e.st === 'wind') { const g = 1 + .5 * (1 - e.t2 / Math.max(1, Math.round(V_POP.wind * e.spd))); qx *= g; qy *= g; }
+    if (e.atk === W_STANCE && e.st === 'act' && e.t % 24 < 3) tint = 'w';
     if (qx === 1 && sc === 1) drawSpr(spr, cx, by, e.face, tint, ox, oy);
     else drawSprScaled(spr, cx + ox, by + oy, e.face, tint, sc * qx, sc * qy);
     if (e.ch === 'k' && e.st === 'gbrk') { ctx.fillStyle = '#6ec8e8'; ctx.fillRect(Math.round(cx - camX - 6), Math.round(e.y + e.h - 2), 6, 2); }
-    if (e.st === 'act' && e.atk && e.atk.box && e.atk !== RAT_LUNGE && e.atk !== BAT_DIVE && e.atk !== SP_DROP && e.atk !== SLIME_HOP && e.atk !== WISP_DASH && e.atk !== J_CHARGE && e.atk !== J_LEAP) {
+    if (e.st === 'act' && e.atk && e.atk.box && !e.atk.noFx && e.atk !== RAT_LUNGE && e.atk !== BAT_DIVE && e.atk !== SP_DROP && e.atk !== SLIME_HOP && e.atk !== WISP_DASH && e.atk !== J_CHARGE && e.atk !== J_LEAP) {
       ctx.fillStyle = e.atk.red ? '#ff6040' : '#e8dcc0'; const b = e.atk.box(e);
       for (let i = 0; i < b.w; i += 2) ctx.fillRect(Math.round(b.x + i - camX), Math.round(b.y + 3 + Math.abs(i - b.w / 2) / 3), 2, 1);
     }
     if (e.ch === 'w' && !e.vuln) lights.push({ x: cx - camX, y: e.y + 6, r: 44, c: 'rgba(255,170,60,.3)' });
     if (e.ch === 'e') lights.push({ x: cx - camX, y: e.y + 4, r: e.small ? 16 : 26, c: 'rgba(255,120,40,.18)' });
+    if (e.ch === 'g' || e.ch === 'u') lights.push({ x: cx - camX, y: e.y + 4, r: 20, c: e.ch === 'g' ? 'rgba(120,220,80,.14)' : 'rgba(110,200,232,.16)' });
+    if (e.atk === W_STANCE && e.st === 'act') lights.push({ x: cx - camX, y: e.y + 6, r: 24, c: 'rgba(160,232,255,.22)' });
     if (e.showBar > 0 && e.ch !== 'J') { const bw = Math.max(12, e.w + 4); bar(Math.round(cx - bw / 2 - camX), Math.round(e.y - 6), bw, 2, e.hp / e.maxhp, '#c8402a', '#3a1a1a'); }
-    if (e.tname && e.ch !== 'J' && (e.showBar > 0 || e.agro)) drawText(e.tname, Math.round(cx - camX), Math.round(e.y - 13), TRAITS[e.tr[0]].col, 1, 'center');
+    if (e.tname && e.ch !== 'J' && (e.showBar > 0 || e.agro)) drawText(e.tname, Math.round(cx - camX), Math.round(e.y - 13), e.tr.length ? TRAITS[e.tr[0]].col : '#c8a0e8', 1, 'center');
   }
   drawPlayer();
   lights.push({ x: P.x + P.w / 2 - camX, y: P.y + 6, r: 50 });

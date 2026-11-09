@@ -260,6 +260,37 @@ async def main():
         n = await ev("[__dd.state, __dd.levelIdx, __dd.CH.ng, __dd.CH.unlocked, __dd.enemies[0].maxhp]")
         check("ending leads to New Game+ on floor 1", n[:4] == ["play", 0, 1, 1] and n[4] > hp0, str(n))
         check("old save gets NG+ fields", await ev("""(() => { const c = newChar('knight'); delete c.ng; delete c.deaths; delete c.time; localStorage.setItem('dd2', JSON.stringify(c)); const s = loadSave(); return s.ng === 0 && s.deaths === 0 && s.time === 0; })()"""))
+        # mobs: walkers hop out of a pit and over a low wall
+        await ev("__dd.newGame('knight', 0); for (const e of __dd.enemies) e.dead = true; __dd.P.iframes = 1e9; __dd.P.hp = 9999")
+        n = await ev("""(() => { MAP[9][20] = '.'; MAP[8][24] = '#'; const t = applyTraits(makeEnemy('t', 20, 9)); t.agro = true; t.cd = 1e9; enemies.push(t);
+            __dd.tp(28 * 16, 130); for (let i = 0; i < 600; i++) { P.x = 28 * 16; P.y = 130; updateEnemy(t); } const tx = Math.floor((t.x + t.w / 2) / 16); t.dead = true; return tx; })()""")
+        check("walking mob climbs out of a pit and over a wall", n >= 25, str(n))
+        # each mob's own rule
+        n = await ev("""(() => { const mk = (ch, tr) => { const e = applyTraits(makeEnemy(ch, 30, 8)); e.cd = 1e9; enemies.push(e); return e; }, out = {};
+            P.x = 29 * 16; P.y = 130; P.face = 1;
+            let e = mk('u'); hitEnemy(e, false); const lite = e.maxhp - e.hp; e.hp = e.maxhp; hitEnemy(e, true); out.blue = lite > 0 && e.maxhp - e.hp > lite * 3; e.dead = true;
+            e = mk('b'); e.y = 100; hitEnemy(e, false); out.bat = e.hp === e.maxhp; e.dead = true;
+            e = mk('t'); e.hp = 1; hitEnemy(e, false); out.bones = e.st === 'bones' && !e.dead; hitEnemy(e, false); out.lightOnBones = !e.dead; hitEnemy(e, true); out.crush = e.dead;
+            e = mk('t'); e.hp = 1; hitEnemy(e, false); e.t2 = 1; updateEnemy(e); out.rise = e.st === 'idle' && e.reformed && e.hp > 1; e.dead = true;
+            e = mk('v'); e.hp = Math.round(e.maxhp * .3); e.agro = true; updateEnemy(e); out.pop = e.atk === V_POP; const h = e.hp; hitEnemy(e, true); out.popImmune = e.hp === h; e.dead = true;
+            e = mk('W'); startAtk(e, W_STANCE); e.st = 'act'; e.t2 = 50; e.face = -1; hitEnemy(e, false); out.counter = e.atk === W_RIPOSTE && e.hp === e.maxhp; e.dead = true;
+            e = mk('Q'); startAtk(e, Q_LAY); Q_LAY.start(e); e.atk = null; e.st = 'idle'; hitEnemy(e, true); const shielded = e.maxhp - e.hp;
+            for (const o of enemies) if (o.mom === e) o.dead = true; e.hp = e.maxhp; e.t += 100; hitEnemy(e, true); out.queen = shielded > 0 && e.maxhp - e.hp > shielded * 2; e.dead = true;
+            e = mk('g'); e.hp = 10; e.hitT = -999; for (let i = 0; i < 40; i++) { e.t++; AI.g(e, aiCtx(e)); } out.regen = e.hp > 10; e.dead = true;
+            e = mk('e'); e.hp = 20; hitEnemy(e, false, { dmg: 30, x: P.x, vx: 1 }); out.emberFire = e.hp > 20; e.dead = true;
+            e = mk('o'); e.hatch = 1; AI.o(e, aiCtx(e)); out.hatch = e.dead && enemies.some(s => s.ch === 's' && s.brood && !s.dead);
+            for (const s of enemies) s.dead = true; return out; })()""")
+        check("every new mob rule works", all(n.values()), str(n))
+        await ev("P.state = 'free'; P.iframes = 0; P.x = 300; P.y = 130; P.vx = 0"); await pg.keyboard.down("KeyK"); await pg.wait_for_timeout(100)
+        n = await ev("""(() => { projs.length = 0; P.state = 'free'; P.iframes = 0; P.blockT = 1; P.face = 1; P.x = 300; P.y = 130;
+            projs.push({ kind: 'arrow', x: P.x + 6, y: P.y + 4, w: 4, h: 4, vx: -2.6, vy: 0, life: 200, dmg: 12 });
+            const hp = P.hp; updateWorld(); const pr = projs[0]; return [!!(pr && pr.mine && pr.vx > 0), P.hp === hp]; })()""")
+        await pg.keyboard.up("KeyK")
+        check("parry reflects an arrow", n == [True, True], str(n))
+        n = await ev("""(() => { const bad = []; for (const f of [16, 26, 36]) { loadLevel(f); if (!enemies.some(e => e.ch === 'Q')) bad.push(f + 1); }
+            const seen = new Set(); for (let i = 10; i < 40; i++) for (const o of LEVELS[i].ops) seen.add(o[0]); loadLevel(0);
+            return [bad, ['g', 'u', 'v', 'W'].every(c => seen.has(c))]; })()""")
+        check("new mobs and the spider queen appear on generated floors", n == [[], True], str(n))
         check("version watermark is set", await ev("typeof VERSION === 'string' && /^V\\d+/.test(VERSION)"))
         check("no page errors", not errs, "; ".join(errs[:3]))
         await b.close()
