@@ -56,7 +56,7 @@ body.is-touch.portrait #rot{display:block}
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V10 2026-11-09 NEW MOBS';
+const VERSION = 'V11 2026-11-09 NEW MOBS';
 const W = 320, H = 176, TS = 16;
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -91,7 +91,7 @@ function drawText(s, x, y, col, sc = 1, align = 'left') {
 }
 function drawTextS(s, x, y, col, sc = 1, align = 'left') {
   drawText(s, x + sc, y + sc, '#140c10', sc, align);
-  drawText(s, x, y, col, sc, align);
+  return drawText(s, x, y, col, sc, align);
 }
 // segments: [[text,color],...] centered at cx
 function drawRich(segs, cx, y, sc = 1) {
@@ -544,13 +544,15 @@ function genFloor(n) {
 for (let n = LEVELS.length; n < FLOORS; n++) LEVELS.push(genFloor(n));
 const MH = 11;
 let MW = 40, MAP, SPAWNS, LV, ARENA_COL = -1, ARENA_X = 0;
+const hasAltar = n => n % 3 === 2 && !LEVELS[n].arena; // a rune altar on every third floor
 function buildLevel(n) {
   LV = LEVELS[n]; MW = LV.w;
   MAP = [...Array(MH)].map(() => Array(MW).fill('.'));
-  SPAWNS = { torches: [], coins: [], potions: [], mobs: [], start: null, exit: null, bonfire: null, chest: null };
+  SPAWNS = { torches: [], coins: [], potions: [], mobs: [], start: null, exit: null, bonfire: null, chest: null, altar: null };
   const low = LV.theme === 'barrow';
   const ops = [['#',0,0,MW,low ? 3 : 1],['#',0,9,MW,2],['#',0,1,1,8],['#',MW - 1,1,1,8],['F',4,8]].concat(LV.ops);
   if (!LV.arena) ops.push(['X', MW - 3, 8]);
+  if (hasAltar(n)) ops.push(['A', 7, 8]);
   for (const [ch, x, y, cnt = 1, hh = 1] of ops)
     for (let j = 0; j < hh; j++) for (let i = 0; i < cnt; i++) MAP[y + j][x + i] = ch;
   if (LV.flip) for (const row of MAP) row.reverse();
@@ -564,6 +566,7 @@ function buildLevel(n) {
     else if (ch === 'p') SPAWNS.potions.push({ x: x * TS + 4, y: y * TS + 8 });
     else if (ch === 'X') SPAWNS.exit = { x: x * TS, y: (y - 1) * TS, w: 16, h: 32 };
     else if (ch === 'F') SPAWNS.bonfire = { x: x * TS, y: y * TS, w: 16, h: 16 };
+    else if (ch === 'A') SPAWNS.altar = { x: x * TS, y: y * TS, w: 16, h: 16 };
     else if (ch === 'G') SPAWNS.chest = { x: x * TS + 2, y: y * TS + 7, w: 12, h: 9, item: LV.chest };
     else SPAWNS.mobs.push({ ch, tx: x, ty: y, tr: (LV.mods || {})[(LV.flip ? MW - 1 - x : x) + ',' + y] });
   }
@@ -1173,30 +1176,32 @@ const HERO = {
 ....kMk..kMk....
 ....kNNk.kNNk...
 ....kkkk.kkkk...`,
+    // walk cycle: contact (feet apart), passing (one leg planted, the other lifted), then the same with legs swapped.
+    // S = far leg, M = near leg. Shins stay upright so the stride reads as steps, not a scissor.
     walk1: `
 ....kSk.kMk.....
 ...kSk...kMk....
-..kSk.....kMk...
-..kNNk....kNNk..
-..kkkk....kkkk..`,
+...kSk...kMk....
+..kNNk...kNNk...
+..kkkk...kkkk...`,
     walk2: `
 .....kSkMk......
 .....kSkMk......
-.....kSkkMMk....
-....kNNkkkNNk...
-....kkkk..kkk...`,
+...kNNkkMk......
+...kkkkkNNk.....
+.......kkkk.....`,
     walk3: `
 ....kMk.kSk.....
 ...kMk...kSk....
-..kMk.....kSk...
-..kNNk....kNNk..
-..kkkk....kkkk..`,
+...kMk...kSk....
+..kNNk...kNNk...
+..kkkk...kkkk...`,
     walk4: `
 .....kMkSk......
 .....kMkSk......
-.....kMkkSSk....
-....kNNkkkNNk...
-....kkkk..kkk...`,
+...kNNkkSk......
+...kkkkkNNk.....
+.......kkkk.....`,
     jump: `
 ....kMk.kMk.....
 ...kMk...kMkk...
@@ -1423,9 +1428,59 @@ const RAR = [{ name: 'COMMON', c: '#d8c8b8' }, { name: 'RARE', c: '#6ec8e8' }, {
 const LOOT = [[], [], [], []]; for (const id in ITEMS) if (ITEMS[id].loot) LOOT[ITEMS[id].rar].push(id);
 const STATS = ['vit', 'end', 'str', 'dex'], STAT_NAME = { vit: 'VITALITY', end: 'ENDURANCE', str: 'STRENGTH', dex: 'DEXTERITY' };
 const WT = { light: { roll: 16, iA: 2, iB: 14, spd: 2.5, regen: 1.1 }, mid: { roll: 18, iA: 2, iB: 13, spd: 2.2, regen: 1 }, heavy: { roll: 22, iA: 3, iB: 12, spd: 1.7, regen: .85 } };
-function bonusLine(id) { const b = ITEMS[id].b || {}; return STATS.filter(k => b[k]).map(k => '+' + b[k] + ' ' + k.toUpperCase()).join('  '); }
+// Weight in KG. Everything you carry counts. Carry limit grows with STR; over it you walk slow, roll short and tire fast.
+const KG = { sword: 4, bonesword: 3, thrallblade: 4, runeblade: 4, draugr: 5, axe: 9, beardaxe: 8, forgeaxe: 10, skullsplitter: 11, daggers: 2, emberdaggers: 2, frostfang: 2,
+  buckler: 2, wood: 4, round: 5, kite: 8, targe: 3, leather: 3, cloak: 2, ravenleather: 3, hide: 7, wolfpelt: 6, chain: 10, mail: 15, runemail: 14 };
+for (const id in ITEMS) ITEMS[id].kg = EMPTY[ITEMS[id].slot] === id ? 0 : KG[id] || 1;
+// Status effects. Hits fill a meter (0 to 100); when full, BLEED bursts for a chunk of max HP,
+// POISON and BURN tick damage for a while, FROST slows. Meters drain over time. Same rules for the hero and monsters.
+const FX = { bleed: { name: 'BLEED', c: '#ff4a5a' }, poison: { name: 'POISON', c: '#8fe05a', dur: 360, every: 30, pct: .02 },
+  burn: { name: 'BURN', c: '#ff9a3a', dur: 150, every: 15, pct: .025 }, frost: { name: 'FROST', c: '#a8e8ff', dur: 200 } };
+const FX_KEYS = Object.keys(FX);
+// gear fx = meter added to a monster per hit (heavy hits x1.6), res = share of incoming meter ignored
+const ITEM_FX = { bonesword: { bleed: 25 }, thrallblade: { bleed: 15 }, runeblade: { frost: 20 }, draugr: { frost: 25, bleed: 15 }, axe: { bleed: 18 }, beardaxe: { bleed: 30 },
+  forgeaxe: { burn: 35 }, skullsplitter: { bleed: 45 }, daggers: { bleed: 12 }, emberdaggers: { burn: 18 }, frostfang: { frost: 22 }, serpentring: { poison: 15 }, emberring: { burn: 10 } };
+const ITEM_RES = { wolfpelt: { bleed: .4 }, ravenleather: { poison: .4 }, mail: { bleed: .3 }, runemail: { frost: .4, bleed: .2 }, hide: { bleed: .15 }, chain: { bleed: .15 },
+  bonering: { bleed: .3 }, wolftooth: { bleed: .3 }, ravencharm: { poison: .35 }, runestone: { frost: .35 }, thorshammer: { burn: .4 }, kite: { burn: .2 }, targe: { poison: .2 } };
+for (const id in ITEM_FX) ITEMS[id].fx = ITEM_FX[id];
+for (const id in ITEM_RES) ITEMS[id].res = ITEM_RES[id];
+// Upgrades: combining items in the bag (or tempering at an altar) raises an item to +1 .. +10.
+// gear(id) is the item with its upgrade applied; use it for every stat read.
+const MAX_UP = 10, GEAR = {};
+const upLv = id => (CH && CH.up && CH.up[id]) || 0;
+function gear(id) {
+  const n = upLv(id), key = id + '|' + n;
+  if (GEAR[key]) return GEAR[key];
+  const it = ITEMS[id], g = Object.assign({}, it), m = 1 + .08 * n;
+  if (n) {
+    g.name = it.name + ' +' + n;
+    if (it.slot === 'w') { g.l = Math.round(it.l * m); g.h = Math.round(it.h * m); }
+    if (it.slot === 's') { g.absorb = Math.min(1, it.absorb + .01 * n); g.stab = it.stab + 3 * n; }
+    if (it.slot === 'a') g.def = Math.min(.6, it.def + .012 * n);
+    if (it.b) { g.b = {}; const add = it.slot === 'r' || it.slot === 'n' ? (n + 1) >> 1 : (n / 3) | 0; for (const k in it.b) g.b[k] = it.b[k] + add; }
+    if (it.fx) { g.fx = {}; for (const k in it.fx) g.fx[k] = Math.round(it.fx[k] * m); }
+  }
+  return GEAR[key] = g;
+}
+const carryMax = () => 30 + stat('str') * 3;
+const carryKg = () => CH.inv.reduce((s, id) => s + (ITEMS[id] ? ITEMS[id].kg : 0), 0);
+const overloaded = () => carryKg() > carryMax();
+const OVER_WT = { roll: 26, iA: 3, iB: 11, spd: 1.3, regen: .6 };
+const curWT = () => overloaded() ? OVER_WT : WT[ARM().wt];
+// status meter the hero adds per hit (weapon, ring, amulet) and resist from all worn gear
+function heroFx() { const o = {}; for (const sl of ['w', 'r', 'n']) { const f = gear(CH.eq[sl]).fx; if (f) for (const k in f) o[k] = (o[k] || 0) + f[k]; } return o; }
+function fxRes(k) { let r = 0; for (const sl of SLOTS) { const g = gear(CH.eq[sl]); if (g.res && g.res[k]) r += g.res[k]; } return Math.min(.8, r); }
+function fxLine(id) {
+  const g = gear(id), out = [];
+  if (g.fx) for (const k in g.fx) out.push(FX[k].name + ' ' + g.fx[k]);
+  if (g.res) for (const k in g.res) out.push('RESIST ' + FX[k].name + ' ' + Math.round(g.res[k] * 100) + '%');
+  return out.join('  ');
+}
+const DUST = [3, 8, 20, 50]; // rune dust from salvaging an item, by rarity
+const salvageDust = id => DUST[ITEMS[id].rar] + upLv(id) * 4;
+function bonusLine(id) { const b = gear(id).b || {}; return STATS.filter(k => b[k]).map(k => '+' + b[k] + ' ' + k.toUpperCase()).join('  '); }
 function itemLine(id) {
-  const it = ITEMS[id];
+  const it = gear(id);
   if (it.slot === 'r' || it.slot === 'n') return bonusLine(id) || 'EMPTY';
   if (it.slot === 'w') return 'ATK ' + Math.round(it.l * dmgMult()) + ' / ' + Math.round(it.h * dmgMult()) + '  COST ' + it.lc;
   if (it.slot === 's') return 'BLOCK ' + Math.round(it.absorb * 100) + '%  STABILITY ' + it.stab;
@@ -1445,7 +1500,7 @@ const canCook = k => Object.entries(MEALS[k].need).every(([p, c]) => (CH.bag[p] 
 let CH = null, SAVE = null;
 function newChar(cls) {
   const c = CLASSES[cls];
-  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null, ng: 0, deaths: 0, time: 0 };
+  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null, ng: 0, deaths: 0, time: 0, up: {}, dust: 0 };
 }
 function save() { try { localStorage.setItem('dd2', JSON.stringify(CH)); SAVE = CH; } catch (e) {} }
 // old saves (before rings, amulets and DEX) are filled in with defaults
@@ -1453,12 +1508,12 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem('dd2') || 
   s.bag = s.bag || {}; s.meal = MEALS[s.meal] ? s.meal : null;
   if (s.beat) s.unlocked = Math.max(s.unlocked, 11); // saves from before floors 11 to 100 stopped at 10
   if (s.dex == null) s.dex = CLASSES[s.cls].dex;
-  s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0;
+  s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0; s.up = s.up || {}; s.dust = s.dust || 0;
   for (const k in EMPTY) if (!ITEMS[s.eq[k]]) s.eq[k] = EMPTY[k];
   s.inv = s.inv.filter(id => ITEMS[id]); return s; } } catch (e) {} return null; }
 SAVE = loadSave();
 // stat = level-up points + bonus from worn gear
-function gearBonus(k) { let n = 0; for (const sl of SLOTS) { const it = ITEMS[CH.eq[sl]]; if (it && it.b && it.b[k]) n += it.b[k]; } return n; }
+function gearBonus(k) { let n = 0; for (const sl of SLOTS) { const it = ITEMS[CH.eq[sl]] && gear(CH.eq[sl]); if (it && it.b && it.b[k]) n += it.b[k]; } return n; }
 const stat = k => (CH[k] || 0) + gearBonus(k);
 const maxHP = () => Math.round((30 + stat('vit') * 7) * (CH.meal === 'roast' ? 1.3 : 1));
 const maxST = () => 40 + stat('end') * 6;
@@ -1467,7 +1522,7 @@ const critChance = () => clamp(.03 + (stat('dex') - 10) * .02, 0, .4);
 const lvlCost = () => Math.round(60 + 25 * CH.lvl + 3 * CH.lvl * CH.lvl);
 const hasFire = () => !!(CH && CH.beat);
 const FIRE_COST = 30;
-const WPN = () => ITEMS[CH.eq.w], SHD = () => ITEMS[CH.eq.s], ARM = () => ITEMS[CH.eq.a];
+const WPN = () => gear(CH.eq.w), SHD = () => gear(CH.eq.s), ARM = () => gear(CH.eq.a);
 
 // ================= Input =================
 const keys = { left: false, right: false, jump: false, atk: false, block: false, roll: false, down: false };
@@ -1479,7 +1534,7 @@ const inp = k => keys[k] || touch[k] || pad[k] || mouse[k];
 const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump',
   KeyJ: 'atk', KeyK: 'block', KeyL: 'roll', ShiftLeft: 'roll', ShiftRight: 'roll', KeyQ: 'heal', KeyF: 'fire', KeyE: 'use', KeyS: 'down', ArrowDown: 'down' };
 const UIKEY = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  Enter: 'ok', Space: 'ok', KeyJ: 'ok', KeyE: 'ok', Escape: 'back', Backspace: 'back', KeyK: 'back', KeyI: 'back' };
+  Enter: 'ok', Space: 'ok', KeyJ: 'ok', KeyE: 'ok', Escape: 'back', Backspace: 'back', KeyK: 'back', KeyI: 'back', KeyC: 'combine', KeyX: 'salvage' };
 addEventListener('keydown', e => {
   if (document.body.classList.contains('is-touch') && !e.repeat) { document.body.classList.remove('is-touch'); resize(); }
   if (e.code === 'KeyM' && !e.repeat) { initAudio(); setMuted(!muted); return; }
@@ -1495,6 +1550,10 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k && k in keys) keys[k] = false; });
 addEventListener('blur', () => { for (const o of [keys, touch, mouse]) for (const k in o) o[k] = false; });
 let uiRects = [];
+const ptr = { x: -1, y: -1, on: false }; // mouse position in game pixels, for tooltips
+cv.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; const r = cv.getBoundingClientRect(); ptr.x = (e.clientX - r.left) / r.width * W; ptr.y = (e.clientY - r.top) / r.height * H; ptr.on = true; });
+cv.addEventListener('pointerleave', () => { ptr.on = false; });
+cv.addEventListener('wheel', e => { if (state === 'menu' && menu && menu.kind === 'bag') { e.preventDefault(); menu.top = clamp((menu.top || 0) + Math.sign(e.deltaY), 0, bagMaxTop()); } }, { passive: false });
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); initAudio(); try { window.focus(); } catch (_) {}
   if (state === 'play') {
@@ -1561,6 +1620,7 @@ function pollPad() {
   } else {
     for (const k in pad) pad[k] = false;
     for (const k of ['up', 'down', 'left', 'right', 'ok', 'back', 'l10', 'r10']) if (edge(k)) { initAudio(); uiKey(k); }
+    if (edge('atk')) uiKey('combine'); if (edge('heal')) uiKey('salvage'); // X / Y in the bag
   }
   Object.assign(prevPad, now);
 }
@@ -1663,6 +1723,54 @@ function puff(x, y, col, n = 10, spd = 1.6) {
 }
 function spark(x, y, col = '#f8d048', n = 5) { puff(x, y, col, n, 2.2); }
 function ftext(x, y, s, col = '#f4ead6') { texts.push({ x, y, s: String(s), col, life: 50 }); }
+// ----- status effects (rules next to FX) -----
+// what monsters put on the hero per landed hit, by monster letter and by shot kind
+const MOB_FX = { r: { bleed: 28 }, b: { bleed: 22 }, t: { bleed: 10 }, a: { bleed: 10 }, s: { poison: 38 }, e: { burn: 30 }, w: { burn: 34 }, h: { poison: 26 }, k: { bleed: 14 }, J: { bleed: 12 },
+  W: { bleed: 24 }, Q: { poison: 30 } }; // g u v apply their own status through mobFx
+const SHOT_FX = { arrow: { bleed: 14 }, web: { poison: 12 }, frost: { frost: 55 }, ember: { burn: 22 } };
+// bones barely bleed, slimes and wisps are fire
+const ENEMY_RES = { t: { bleed: .5 }, a: { bleed: .5 }, k: { bleed: .5 }, h: { bleed: .3 }, e: { burn: 1, poison: .5 }, w: { bleed: 1, poison: 1, burn: 1 },
+  g: { poison: 1 }, u: { frost: 1, bleed: .5 }, v: { burn: .5 }, o: { bleed: 1 } };
+function resOf(t, k) {
+  if (t === P) return fxRes(k);
+  let r = (ENEMY_RES[t.ch] || {})[k] || 0;
+  if (t.tr && ((k === 'burn' && t.tr.includes('ember')) || (k === 'frost' && t.tr.includes('frost')))) r = 1;
+  if (t.ch === 'J') r = Math.max(r, .5);
+  return Math.min(1, r);
+}
+const hasFx = (t, k) => !!(t && t.fxa && t.fxa[k] > 0);
+function clearFx(t, ks) { if (!t.fxa) return; for (const k of ks || FX_KEYS) { t.fxa[k] = 0; t.fxb[k] = 0; } }
+function addFx(t, k, amt) {
+  if (!amt || t.dead || (t === P && P.state === 'dead')) return;
+  const b = t.fxb || (t.fxb = {}), a = t.fxa || (t.fxa = {});
+  amt *= 1 - resOf(t, k);
+  if (amt <= 0) return;
+  if (a[k] > 0) { a[k] = Math.max(a[k], FX[k].dur * .6 | 0); return; } // already on: hits keep it going
+  b[k] = (b[k] || 0) + amt;
+  if (b[k] < 100) return;
+  b[k] = 0;
+  const cx = t.x + t.w / 2, mh = t === P ? maxHP() : t.maxhp;
+  ftext(cx, t.y - 16, FX[k].name + '!', FX[k].c); puff(cx, t.y + t.h / 2, FX[k].c, 12, 1.8);
+  if (k === 'bleed') { fxDamage(t, Math.round(mh * (t === P ? .2 : t.ch === 'J' ? .08 : .25))); sfx('hit'); }
+  else a[k] = FX[k].dur;
+}
+function fxDamage(t, d, col) {
+  d = Math.max(1, d);
+  if (t === P) { if (P.state === 'dead' || state !== 'play') return; P.hp -= d; ftext(P.x + P.w / 2, P.y - 4, d, col || '#ff4a5a'); if (P.hp <= 0) die(); }
+  else { if (t.dead) return; t.hp -= d; t.flash = 4; t.showBar = 200; ftext(t.x + t.w / 2, t.y - 4, d, col || '#ff4a5a'); if (t.hp <= 0) killEnemy(t); }
+}
+function tickFx(t) {
+  const b = t.fxb, a = t.fxa;
+  if (!b) return;
+  for (const k of FX_KEYS) {
+    if (b[k] > 0) b[k] = Math.max(0, b[k] - .12);
+    if (!(a[k] > 0)) continue;
+    a[k]--;
+    const f = FX[k];
+    if (f.every && a[k] % f.every === 0) fxDamage(t, Math.round((t === P ? maxHP() : t.maxhp) * f.pct * (t.ch === 'J' ? .5 : 1)), f.c);
+    if (frameN % 6 === 0) particles.push({ x: t.x + rnd(0, t.w), y: t.y + rnd(0, t.h), vx: 0, vy: k === 'frost' ? .3 : -rnd(.2, .6), life: 18, c: f.c, g: 0, s: 1 });
+  }
+}
 function dust(x, y, n = 8, sp = 10, c = '#8a5a40') { for (let i = 0; i < n; i++) particles.push({ x: x + rnd(-sp, sp), y, vx: rnd(-1.4, 1.4) * sp / 10, vy: -rnd(.3, 1), life: 22, c, g: .05, s: sp < 10 ? 1 : 2 }); }
 // opaque pixels of a canvas as [x, y, color], used to break a body into its own pixels
 function canvasPixels(cv, w, h) {
@@ -1697,7 +1805,19 @@ function damagePlayer(d, fromX, kb = 1, stagger = true) {
   if (P.hp <= 0) die();
 }
 // Every enemy hit on the player goes through here: roll, parry, block, guard break or hit.
+// a landed hit (or a blocked one, scaled by chip) also fills the hero's status meters
 function resolveHit(src, o) {
+  const r = resolveHit0(src, o);
+  if (r === 'hit' || r === 'gbreak' || r === 'block') {
+    const f = Object.assign({}, src.isEnemy ? MOB_FX[src.ch] : SHOT_FX[src.kind]), tr = src.tr || [];
+    if (tr.includes('frost')) f.frost = (f.frost || 0) + 25;
+    if (tr.includes('ember')) f.burn = (f.burn || 0) + 22;
+    const m = (r === 'block' ? 1 - SHD().absorb : 1) * (tr.includes('elite') ? 1.5 : 1);
+    for (const k in f) addFx(P, k, f[k] * m);
+  }
+  return r;
+}
+function resolveHit0(src, o) {
   if (state !== 'play' || P.state === 'dead') return 'none';
   if (P.iframes > 0) return 'dodge';
   const mul = src.isEnemy ? (src.dmgMul || 1) : floorDmg();
@@ -1741,14 +1861,22 @@ function startAttack(heavy) {
   const ax = (inp('right') ? 1 : 0) - (inp('left') ? 1 : 0); if (ax) P.face = ax;
 }
 function startRoll(ax) {
-  const wt = WT[ARM().wt];
+  const wt = curWT();
   P.state = 'roll'; P.t = wt.roll; P.rollDir = ax || P.face; P.face = P.rollDir;
-  P.stam -= 18; P.stamDelay = 30; sfx('roll');
+  P.stam -= wt === OVER_WT ? 27 : 18; P.stamDelay = 30; sfx('roll');
+}
+// standing on a one-way ledge (not solid ground)
+function onLedge() {
+  if (!P.onGround) return false;
+  const by = Math.floor((P.y + P.h + 1) / TS), x0 = Math.floor(P.x / TS), x1 = Math.floor((P.x + P.w - 0.01) / TS);
+  let plat = false; for (let tx = x0; tx <= x1; tx++) { if (isSolid(tx, by)) return false; if (isPlat(tx, by)) plat = true; }
+  return plat;
 }
 const lowHP = () => P.state !== 'dead' && P.hp > 0 && P.hp < maxHP() * .25;
 function attackBox() { const r = WPN().reach + (P.heavy ? 3 : 0); return { x: P.face > 0 ? P.x + P.w - 2 : P.x - r + 2, y: P.y - 4, w: r, h: 20 }; }
 function updatePlayer() {
-  const w = WPN(), wt = WT[ARM().wt];
+  const w = WPN(), wt = curWT(), slow = (wt === OVER_WT ? .65 : 1) * (hasFx(P, 'frost') ? .6 : 1);
+  tickFx(P);
   if (P.iframes > 0) P.iframes--; if (P.webT > 0) P.webT--; if (P.fireCd > 0) P.fireCd--; if (P.dropT > 0) P.dropT--;
   const ax = (inp('right') ? 1 : 0) - (inp('left') ? 1 : 0);
   const webMul = P.webT > 0 ? .5 : 1;
@@ -1765,7 +1893,7 @@ function updatePlayer() {
   switch (P.state) {
     case 'free': {
       P.blocking = inp('block');
-      const spd = (P.blocking ? .42 : .95) * webMul;
+      const spd = (P.blocking ? .42 : .95) * webMul * slow;
       if (ax && !P.blocking) P.face = ax;
       P.vx += (ax * spd - P.vx) * (P.onGround ? .3 : .15);
       if (P.buf) {
@@ -1811,7 +1939,7 @@ function updatePlayer() {
     }
     case 'heal':
       P.blocking = false; P.vx += (ax * .25 - P.vx) * .3; P.t--;
-      if (P.t === 22) { P.hp = Math.min(maxHP(), P.hp + Math.round(maxHP() * .45)); sfx('heal'); puff(P.x + P.w / 2, P.y + 4, '#7fe08a', 10); }
+      if (P.t === 22) { P.hp = Math.min(maxHP(), P.hp + Math.round(maxHP() * .45)); sfx('heal'); clearFx(P, ['poison', 'burn']); puff(P.x + P.w / 2, P.y + 4, '#7fe08a', 10); }
       if (P.t <= 0) P.state = 'free';
       break;
     case 'cast':
@@ -1828,7 +1956,7 @@ function updatePlayer() {
   }
   if (P.blocking && !wasBlock) P.blockT = 0; else if (P.blocking) P.blockT++; else P.blockT = 99;
   if (P.stamDelay > 0) P.stamDelay--;
-  else if (P.state !== 'atk' && P.state !== 'roll' && P.state !== 'cast') P.stam = Math.min(maxST(), P.stam + (P.blocking ? .3 : .85) * wt.regen * (CH.meal === 'jelly' ? 1.5 : 1));
+  else if (P.state !== 'atk' && P.state !== 'roll' && P.state !== 'cast') P.stam = Math.min(maxST(), P.stam + (P.blocking ? .3 : .85) * wt.regen * (CH.meal === 'jelly' ? 1.5 : 1) * (hasFx(P, 'frost') ? .5 : 1));
   P.vy = Math.min(P.vy + 0.28, 5);
   // a quick tap still clears a ledge (36px); holding jumps higher (about 46px)
   if (!inp('jump') && P.vy < -1.5 && P.jumpY !== undefined && P.jumpY - P.y > 36) P.vy = -1.5;
@@ -1871,7 +1999,9 @@ function hitEnemy(e, heavy, spell) {
   e.poise -= (spell ? 20 : heavy ? w.poise[1] : w.poise[0]) * mr.p; e.poiseT = 100;
   if (e.poise <= 0 && e.st !== 'stag' && e.hp > 0) { e.st = 'stag'; e.t2 = e.ch === 'J' ? 50 : 36; e.atk = null; e.poise = e.pmax || e.d.poise; }
   if (e.d.light && e.st !== 'act') e.vx = (spell ? Math.sign(spell.vx) : P.face) * 1.6;
-  if (e.hp <= 0) killEnemy(e);
+  if (e.hp <= 0) { killEnemy(e); return; }
+  const f = spell ? { burn: 40 } : heroFx();
+  for (const k in f) addFx(e, k, f[k] * (heavy ? 1.6 : 1));
 }
 function killEnemy(e) {
   if (mobDeath(e)) return;
@@ -1880,12 +2010,14 @@ function killEnemy(e) {
   shatter(e); puff(e.x + e.w / 2, e.y + e.h / 2, e.d.puff, big ? 40 : 14, big ? 2.6 : 1.8); puff(e.x + e.w / 2, e.y + e.h / 2, '#140c10', 6);
   sfx('kill'); shake = Math.max(shake, big ? 10 : 3);
   CH.xp += e.xp; ftext(e.x + e.w / 2, e.y - 12, '+' + e.xp + ' XP', '#f2c14e');
+  if (!e.small && !e.summoned && (Math.random() < .25 || (e.tr || []).includes('elite') || big)) { // rune dust, more on deep floors
+    const d = (big ? 20 : (e.tr || []).includes('elite') ? 6 : 1) + (levelIdx / 15 | 0); CH.dust = (CH.dust || 0) + d; ftext(e.x + e.w / 2, e.y - 20, '+' + d + ' DUST', '#c88ae8'); }
   const loot = rollLoot(e); if (loot) dropLoot(e.x + e.w / 2, e.y + e.h / 2, loot);
   if (e.ch === 'e' && !e.small) for (const dir of [-1, 1]) {
     const s = makeEnemy('e', 0, 0, { small: true, agro: true, cd: 50 });
     s.x = e.x + e.w / 2 - 4; s.y = e.y + e.h - 8; s.vx = dir * 1.3; s.vy = -2.2; s.face = dir; enemies.push(applyTraits(s));
   }
-  if (e.tr && e.tr.includes('ember') && e.grav) hazards.push({ x: e.x + e.w / 2 - 12, y: e.y + e.h - 5, w: 24, h: 5, life: 150 });
+  if (e.tr && e.tr.includes('ember') && e.grav) hazards.push({ kind: 'ember', x: e.x + e.w / 2 - 12, y: e.y + e.h - 5, w: 24, h: 5, life: 150 });
   dropTable(e).forEach((k, i) => pickups.push({ kind: k === 'flask' ? 'flask' : 'part', part: k, x: e.x + e.w / 2 - 4 + (i - 1) * 7, y: Math.min(e.y + e.h - 8, 136), w: 8, h: 8, t: 0, drop: true }));
   if (big) {
     bossDeadT = 1; projs.length = 0; hazards.length = 0;
@@ -1900,7 +2032,7 @@ function dropTable(e) {
   if (tr.includes('elite')) return [p, p, p, 'flask'];
   return tr.includes('giant') ? [p, p] : [p];
 }
-// Loot: bigger monsters drop more often, deeper areas roll better rarities. Never drops gear you already have.
+// Loot: bigger monsters drop more often, deeper areas roll better rarities. New gear first; once all of a rarity is found, copies drop.
 function rollLoot(e) {
   if (e.small || e.summoned || e.ch === 'J' || Math.random() > .1 + e.xp / 600 + ((e.tr || []).includes('elite') ? .5 : 0)) return null;
   const r = Math.random() * 100 - Math.min(levelIdx, 25) - ((e.tr || []).includes('elite') ? 30 : 0);
@@ -1909,6 +2041,7 @@ function rollLoot(e) {
     const pool = (LOOT[k] || []).filter(id => !CH.inv.includes(id) && !pickups.some(p => p.item === id));
     if (pool.length) return pool[Math.random() * pool.length | 0];
   }
+  for (const k of [rar, rar - 1, rar - 2, rar - 3]) if (LOOT[k] && LOOT[k].length) return LOOT[k][Math.random() * LOOT[k].length | 0];
   return null;
 }
 function dropLoot(x, y, id) {
@@ -2059,7 +2192,7 @@ AI.s = (e, c) => {
 const SLIME_HOP = { wind: 22, act: 70, rec: 34, dmg: 14, kb: 1.5, cd: 40,
   start(e, c) { e.vy = e.small ? -3.4 : -3.6; e.vx = clamp(c.dx / 28, -1.6, 1.6); e.airT = 0; sfx('hop'); },
   during(e, c, ph) {
-    if (ph === 'act') { e.airT++; if (e.onGround && e.airT > 4) { e.endAct = true; e.vx = 0; hazards.push({ x: e.x + e.w / 2 - 8, y: e.y + e.h - 5, w: 16, h: 5, life: e.small ? 70 : 130 }); } }
+    if (ph === 'act') { e.airT++; if (e.onGround && e.airT > 4) { e.endAct = true; e.vx = 0; hazards.push({ kind: 'ember', x: e.x + e.w / 2 - 8, y: e.y + e.h - 5, w: 16, h: 5, life: e.small ? 70 : 130 }); } }
     else e.vx *= .7;
   }, box: e => (e.vy > 0 ? e : null) };
 AI.e = (e, c) => { e.vx *= .7; if (c.adx < 180 && c.ady < 60) e.agro = true; if (!e.agro) return; e.face = c.sx; if (e.onGround && --e.cd <= 0) startAtk(e, SLIME_HOP); };
@@ -2275,7 +2408,7 @@ function mobRule(e, heavy, spell, frontal) {
 }
 // Called when a mob hits 0 HP. Return true to keep it alive (thralls fall to bones the first time).
 function mobDeath(e) {
-  if (e.ch === 't' && !e.reformed && !e.crushed && !e.summoned && !e.small) {
+  if (e.ch === 't' && e.st !== 'bones' && !e.reformed && !e.crushed && !e.summoned && !e.small) {
     e.hp = 1; e.st = 'bones'; e.t2 = 260; e.atk = null; e.vx = 0; e.flash = 0;
     ftext(e.x + e.w / 2, e.y - 10, 'IT WILL RISE', '#a8a8b0'); sfx('kill'); puff(e.x + e.w / 2, e.y + e.h - 4, '#e8dcc0', 10);
     return true;
@@ -2326,8 +2459,10 @@ function updateWorld() {
   const viewC = camX + W / 2;
   for (const e of enemies) {
     if (e.dead) continue;
-    if (e.ch === 'J') { if (arenaLocked) updateEnemy(e); continue; }
-    if (Math.abs(e.x - viewC) < 240) updateEnemy(e);
+    const live = e.ch === 'J' ? arenaLocked : Math.abs(e.x - viewC) < 240;
+    if (!live) continue;
+    tickFx(e); if (e.dead) continue;
+    if (!(hasFx(e, 'frost') && frameN % 3 === 0)) updateEnemy(e); // frost: a third slower
   }
   enemies = enemies.filter(e => !e.dead || e.ch === 'J');
   for (const pr of projs) {
@@ -2397,7 +2532,9 @@ function updateWorld() {
   if (P.state === 'free' && overlap(P, { x: bf.x - 6, y: bf.y - 8, w: 28, h: 24 })) interact = { label: 'REST', act: rest, obj: bf };
   const ch = SPAWNS.chest;
   if (ch && !CH.opened[levelIdx] && P.state === 'free' && overlap(P, { x: ch.x - 6, y: ch.y - 8, w: 24, h: 18 })) interact = { label: 'OPEN', act: openChest, obj: ch };
-  if (consume('use') && interact) interact.act();
+  const al = SPAWNS.altar;
+  if (al && P.state === 'free' && overlap(P, { x: al.x - 6, y: al.y - 8, w: 28, h: 24 })) interact = { label: 'PRAY', act: openAltar, obj: al };
+  if (consume('use')) { if (interact) interact.act(); else if (onLedge()) latch.down = true; } // touch: USE drops through a ledge
   if (SPAWNS.exit && state === 'play' && overlap(P, SPAWNS.exit)) {
     state = 'clear'; clearT = 0; bannerT = 0; clearLatches(); sfx('check');
     CH.unlocked = Math.max(CH.unlocked, Math.min(LEVELS.length, levelIdx + 2)); save();
@@ -2423,10 +2560,12 @@ function rest() {
   sfx('rest'); save(); loadLevel(levelIdx); state = 'menu'; bannerT = 0; openBonfire();
   puff(SPAWNS.bonfire.x + 8, SPAWNS.bonfire.y + 4, '#f8d048', 14);
 }
+const freshItems = new Set(); // found since the bag was last looked at
 function gainItem(id) {
-  const it = ITEMS[id];
-  if (!CH.inv.includes(id)) CH.inv.push(id);
-  popup = { lines: [RAR[it.rar].name + ': ' + it.name, itemLine(id) + (it.b && it.slot !== 'r' && it.slot !== 'n' ? '  ' + bonusLine(id) : ''), isTouchUI() ? 'TAP BAG TO EQUIP' : 'PRESS I TO EQUIP'], col: RAR[it.rar].c, id, t: 260 };
+  const it = ITEMS[id], dup = CH.inv.includes(id);
+  CH.inv.push(id); freshItems.add(id);
+  const tail = overloaded() ? 'TOO HEAVY! SALVAGE IN THE BAG' : dup ? 'A COPY: COMBINE OR SALVAGE IT' : isTouchUI() ? 'TAP BAG TO EQUIP' : 'PRESS I TO EQUIP';
+  popup = { lines: [RAR[it.rar].name + ': ' + it.name, itemLine(id) + (it.b && it.slot !== 'r' && it.slot !== 'n' ? '  ' + bonusLine(id) : ''), tail], col: RAR[it.rar].c, id, t: 260 };
   sfx(it.rar >= 2 ? 'levelup' : 'potion'); spark(P.x + P.w / 2, P.y, RAR[it.rar].c, 14); save();
 }
 function openChest() {
@@ -2434,8 +2573,8 @@ function openChest() {
   // generated floors: the chest rolls loot like an elite kill, or gives parts and XP when nothing is left to find
   const id = SPAWNS.chest.item || rollLoot({ xp: 1e4, tr: ['elite'] });
   if (id) gainItem(id);
-  else { const xp = 40 + levelIdx * 6; CH.xp += xp; for (const p of PARTS) CH.bag[p] = (CH.bag[p] || 0) + 1;
-    popup = { lines: ['FOUND: PROVISIONS', '+' + xp + ' XP  +1 OF EACH PART', 'COOK THEM AT A BONFIRE'], t: 220 }; sfx('levelup'); save(); }
+  else { const xp = 40 + levelIdx * 6, d = 10 + levelIdx; CH.xp += xp; CH.dust += d; for (const p of PARTS) CH.bag[p] = (CH.bag[p] || 0) + 1;
+    popup = { lines: ['FOUND: PROVISIONS', '+' + xp + ' XP  +' + d + ' DUST  +1 OF EACH PART', 'COOK THEM AT A BONFIRE'], t: 220 }; sfx('levelup'); save(); }
   spark(SPAWNS.chest.x + 6, SPAWNS.chest.y, '#f8d048', 14);
 }
 function updateParticles() {
@@ -2481,10 +2620,20 @@ function cook(k) {
 }
 // Inventory: equipped slots on top, bag grid below. Pick an item to wear it; pick a worn ring, amulet or shield to take it off.
 const BAG_COLS = 12;
+const BAG_ROWS = 3;
+// keep the picked cell on screen
+function bagScroll() { const m = menu, r = (m.sel / BAG_COLS) | 0; m.top = m.top || 0; if (r < m.top) m.top = r; if (r >= m.top + BAG_ROWS) m.top = r - BAG_ROWS + 1; }
+const bagMaxTop = () => Math.max(0, Math.ceil(menu.list.length / BAG_COLS) - BAG_ROWS);
+// pick a bag cell: wear it, or in combine mode melt it into the chosen item
+function bagPick(i) {
+  const id = menu.list[i]; if (!id) return;
+  if (menu.comb) return combine(menu.comb, id);
+  menu.salv = null; equipItem(id);
+}
 function bagList() { return CH.inv.filter(id => ITEMS[id] && EMPTY[ITEMS[id].slot] !== id).sort((a, b) => SLOTS.indexOf(ITEMS[a].slot) - SLOTS.indexOf(ITEMS[b].slot) || ITEMS[a].rar - ITEMS[b].rar); }
 function openBag(from) {
   const back = from || closeMenu;
-  menu = { kind: 'bag', title: 'INVENTORY', sel: 0, items: [], back, list: bagList() };
+  menu = { kind: 'bag', title: 'INVENTORY', sel: 0, top: 0, items: [], back, list: bagList(), comb: null, salv: null };
   state = 'menu';
 }
 function equipItem(id) {
@@ -2497,12 +2646,68 @@ function equipItem(id) {
   if (P) { P.hp = Math.min(P.hp, maxHP()); P.stam = Math.min(P.stam, maxST()); }
   save();
 }
+const copies = id => CH.inv.filter(x => x === id).length;
+const isWorn = id => CH.eq[ITEMS[id].slot] === id;
+// an item you can give away: not your only worn copy
+const spare = id => !isWorn(id) || copies(id) > 1;
+function bagMsg(t, err) { menu.msg = t; menu.msgT = 110; sfx(err ? 'err' : 'pick'); }
+function takeOne(id) { CH.inv.splice(CH.inv.indexOf(id), 1); if (!CH.inv.includes(id)) delete CH.up[id]; }
+function refreshBag(keep) { menu.list = bagList(); const j = menu.list.indexOf(keep); menu.sel = j >= 0 ? j : clamp(menu.sel, 0, Math.max(0, menu.list.length - 1)); }
+// Salvage: break an item into rune dust. Asks once before it breaks anything.
+function salvage(id) {
+  if (!id) return;
+  if (!spare(id)) return bagMsg('TAKE IT OFF FIRST', true);
+  if (menu.salv !== id) { menu.salv = id; return bagMsg('SALVAGE ' + gear(id).name + ' FOR ' + salvageDust(id) + ' DUST? AGAIN TO CONFIRM'); }
+  const d = salvageDust(id); menu.salv = null;
+  takeOne(id); CH.dust += d; refreshBag(); bagMsg('+' + d + ' DUST'); sfx('coin'); save();
+}
+// Combine: melt one item into another of the same slot. The kept item gains +1 (plus half the melted item's upgrades).
+function startCombine(id) {
+  if (!id) return;
+  if (upLv(id) >= MAX_UP) return bagMsg('ALREADY +' + MAX_UP, true);
+  menu.comb = id; menu.salv = null; bagMsg('PICK A ' + SLOT_NAME[ITEMS[id].slot] + ' TO MELT INTO IT');
+}
+const canMelt = (into, id) => ITEMS[id].slot === ITEMS[into].slot && (id !== into || copies(id) > 1) && spare(id);
+function combine(into, id) {
+  menu.comb = null;
+  if (!canMelt(into, id)) return bagMsg(id === into ? 'NEED A SECOND COPY' : ITEMS[id].slot !== ITEMS[into].slot ? 'MUST BE THE SAME KIND' : 'TAKE IT OFF FIRST', true);
+  const gain = 1 + (upLv(id) >> 1);
+  takeOne(id); CH.up[into] = Math.min(MAX_UP, upLv(into) + gain);
+  refreshBag(into); bagMsg(gear(into).name + '!'); sfx('levelup'); save();
+  if (P) { P.hp = Math.min(P.hp, maxHP()); P.stam = Math.min(P.stam, maxST()); }
+}
+// Altars (every third floor): turn rune dust into new gear, or temper worn gear
+const CRAFT_COST = [15, 40, 100, 250];
+const temperCost = id => 30 + 25 * upLv(id) * (ITEMS[id].rar + 1);
+function openAltar() {
+  menu = { kind: 'altar', title: 'RUNE ALTAR', sel: 0, items: RAR.map((r, i) => ({ label: 'CRAFT ' + r.name, cost: () => CRAFT_COST[i], col: r.c, act: () => craft(i) }))
+    .concat(['w', 'a'].map(sl => ({ label: 'TEMPER ' + SLOT_NAME[sl], temper: sl, cost: () => temperCost(CH.eq[sl]), act: () => temper(sl) })),
+      [{ label: 'INVENTORY', act: () => openBag(openAltar) }, { label: 'LEAVE', act: closeMenu }]), back: closeMenu };
+  state = 'menu';
+}
+function craftPick(r) {
+  const pool = LOOT[r].filter(id => !CH.inv.includes(id));
+  const from = pool.length ? pool : LOOT[r];
+  return from[Math.random() * from.length | 0];
+}
+function craft(r) {
+  const c = CRAFT_COST[r];
+  if (CH.dust < c) { sfx('err'); menu.msg = 'NEED ' + c + ' DUST'; menu.msgT = 90; return; }
+  CH.dust -= c; const id = craftPick(r); gainItem(id); popup = null;
+  menu.msg = 'CRAFTED ' + ITEMS[id].name; menu.msgT = 140; sfx('levelup'); save();
+}
+function temper(sl) {
+  const id = CH.eq[sl], c = temperCost(id);
+  if (upLv(id) >= MAX_UP) { sfx('err'); menu.msg = 'ALREADY +' + MAX_UP; menu.msgT = 90; return; }
+  if (CH.dust < c) { sfx('err'); menu.msg = 'NEED ' + c + ' DUST'; menu.msgT = 90; return; }
+  CH.dust -= c; CH.up[id] = upLv(id) + 1; menu.msg = gear(id).name + '!'; menu.msgT = 120; sfx('levelup'); save();
+}
 // Controls screen: shown once when a new game starts, and from the pause menu.
 const HELP_KEYS = [['MOVE', 'A D OR ARROWS'], ['JUMP', 'SPACE OR W'], ['ATTACK', 'J OR LEFT CLICK. HOLD FOR HEAVY'], ['BLOCK', 'K OR RIGHT CLICK. LATE BLOCK PARRIES'],
-  ['ROLL', 'L OR SHIFT'], ['HEAL', 'Q DRINKS A FLASK'], ['USE', 'E AT BONFIRES AND CHESTS'], ['FIREBALL', 'F, AFTER THE FIRST JARL'], ['DROP DOWN', 'S ON A LEDGE'],
-  ['BAG / MENU', 'I / ESC'], ['SOUND / VIEW', 'M / V'], ['GAMEPAD', 'A JUMP B ROLL X ATK Y HEAL LB BLOCK RB FIRE']];
+  ['ROLL', 'L OR SHIFT'], ['HEAL', 'Q DRINKS A FLASK'], ['USE', 'E AT BONFIRES, CHESTS AND ALTARS'], ['FIREBALL', 'F, AFTER THE FIRST JARL'], ['DROP DOWN', 'S ON A LEDGE'],
+  ['BAG / MENU', 'I / ESC.  IN BAG: C COMBINE, X SALVAGE'], ['SOUND / VIEW', 'M / V'], ['GAMEPAD', 'A JUMP B ROLL X ATK Y HEAL LB BLOCK RB FIRE']];
 const HELP_TOUCH = [['MOVE', 'LEFT PAD'], ['ATK', 'TAP. HOLD FOR HEAVY'], ['BLOCK', 'HOLD. LATE BLOCK PARRIES'], ['ROLL', 'DODGE THROUGH HITS'], ['HEAL', 'DRINK A FLASK'],
-  ['JUMP', 'TAP. HOLD TO JUMP HIGHER'], ['USE', 'SHOWS AT BONFIRES AND CHESTS'], ['FIRE', 'FIREBALL, AFTER THE FIRST JARL'], ['BAG', 'TOP BUTTON. WEAR NEW GEAR'], ['MENU', 'TOP BUTTON. PAUSE, STATS, QUIT']];
+  ['JUMP', 'TAP. HOLD TO JUMP HIGHER'], ['USE', 'BONFIRES, CHESTS, ALTARS. DROP FROM LEDGES'], ['FIRE', 'FIREBALL, AFTER THE FIRST JARL'], ['BAG', 'TOP BUTTON. WEAR, COMBINE, SALVAGE'], ['ALTAR', 'EVERY 3RD FLOOR. CRAFT GEAR FROM DUST'], ['MENU', 'TOP BUTTON. PAUSE, STATS, QUIT']];
 function openHelp(from) {
   const back = from || closeMenu;
   menu = { kind: 'help', title: 'CONTROLS', sel: 0, items: [{ label: 'GOT IT', act: back }], back };
@@ -2541,7 +2746,7 @@ function uiKey(k) {
     if (k === 'up' || k === 'down') { titleSel = (titleSel + (k === 'up' ? n - 1 : 1)) % n; if (titleItems()[titleSel] !== 'SURE? ERASES SAVE') newConfirm = false; sfx('pick'); }
     else if ((k === 'left' || k === 'right') && SAVE && titleItems()[titleSel] === 'CONTINUE') { titleArea = (titleArea + (k === 'left' ? SAVE.unlocked - 1 : 1)) % SAVE.unlocked; sfx('pick'); }
     else if ((k === 'l10' || k === 'r10') && SAVE) { titleSel = 0; titleArea = clamp(titleArea + (k === 'l10' ? -10 : 10), 0, SAVE.unlocked - 1); sfx('pick'); }
-    else if (k === 'ok' || k === 'any') titleConfirm();
+    else if (k === 'ok' || k === 'any' || k === 'combine' || k === 'salvage') titleConfirm();
     else if (k === 'back') newConfirm = false;
   } else if (state === 'class') {
     if (k === 'left' || k === 'up') { classSel = (classSel + 2) % 3; sfx('pick'); }
@@ -2554,10 +2759,12 @@ function uiKey(k) {
     else if (k === 'right') menu.sel = (menu.sel + 1) % n;
     else if (k === 'up') menu.sel = Math.max(0, menu.sel - BAG_COLS);
     else if (k === 'down') menu.sel = Math.min(n - 1, menu.sel + BAG_COLS);
-    else if (k === 'ok') { if (n) equipItem(menu.list[menu.sel]); return; }
-    else if (k === 'back') { menu.back(); return; }
+    else if (k === 'ok') { if (n) bagPick(menu.sel); return; }
+    else if (k === 'combine') { if (menu.comb) { menu.comb = null; bagMsg('COMBINE CANCELLED'); } else if (n) startCombine(menu.list[menu.sel]); return; }
+    else if (k === 'salvage') { if (n) salvage(menu.list[menu.sel]); return; }
+    else if (k === 'back') { if (menu.comb) { menu.comb = null; bagMsg('COMBINE CANCELLED'); } else menu.back(); return; }
     else return;
-    sfx('pick');
+    menu.salv = null; bagScroll(); sfx('pick');
   } else if (state === 'menu' && menu) {
     const n = menu.items.length;
     if (k === 'up' || k === 'left') { menu.sel = (menu.sel + n - 1) % n; sfx('pick'); }
@@ -2680,7 +2887,7 @@ function heroPose() {
   const w = WPN(), wt = w.type, sw = SWING[wt];
   const o = { cls: CH.cls, w: CH.eq.w, s: CH.eq.s, a: CH.eq.a, legs: 'idle', A: sw[0], reach: 0, lean: 0, bob: 0, block: false, tint: false };
   if (!P.onGround) { o.legs = P.vy < 0 ? 'jump' : 'walk1'; o.A = sw[0] - 25; }
-  else if (P.walkT) { const f = ((P.walkT / 7) | 0) % 4; o.legs = 'walk' + (f + 1); o.bob = f % 2 ? -1 : 0; o.A = sw[0] + (f % 2 ? -4 : 4); }
+  else if (P.walkT) { const f = ((P.walkT / (Math.abs(P.vx) < 1 ? 9 : 6)) | 0) % 4; o.legs = 'walk' + (f + 1); o.bob = f % 2 ? -1 : 0; o.A = sw[0] + (f % 2 ? -4 : 4); }
   if (P.state === 'atk') {
     const back = sw[1] - (P.heavy ? 15 : 0);
     if (P.atkPhase === 'wind') { const tot = P.heavy ? w.tw[1] : w.tw[0]; o.A = lerp(sw[0], back, (1 - P.atkT / tot) * 1.6); o.lean = -1; if (wt === 'dagger') o.reach = -2; }
@@ -2695,12 +2902,25 @@ function heroPose() {
   if (P.state === 'atk' && P.atkPhase === 'wind' && P.heavy && P.atkT < 8 && P.atkT % 4 < 2) o.tint = 'w';
   return o;
 }
+// small status marks over a monster: a filled square when on, a thin meter while filling
+function drawFxPips(e, cx, y) {
+  let n = 0; for (const k of FX_KEYS) if (hasFx(e, k) || e.fxb[k] >= 1) n++;
+  if (!n) return;
+  let x = cx - n * 3;
+  for (const k of FX_KEYS) {
+    const on = hasFx(e, k), v = e.fxb[k] || 0;
+    if (!on && v < 1) continue;
+    ctx.fillStyle = '#140c10'; ctx.fillRect(x - 1, y - 1, 6, 4);
+    ctx.fillStyle = FX[k].c; if (on) ctx.fillRect(x, y, 4, 2); else ctx.fillRect(x, y + 1, Math.max(1, Math.round(4 * v / 100)), 1);
+    x += 6;
+  }
+}
 function drawPlayer() {
   if (P.state === 'dead') return;
   if (P.iframes > 0 && P.state !== 'roll' && ((P.iframes / 3) | 0) % 2) return;
   const cx = P.x + P.w / 2, by = P.y + P.h + 1, o = heroPose();
   paintHero(o);
-  if (P.state === 'roll') { const wt = WT[ARM().wt]; blitHero(cx - camX, by, P.face, (1 - P.t / wt.roll) * Math.PI * 2 * P.rollDir * P.face); return; }
+  if (P.state === 'roll') { const wt = curWT(); blitHero(cx - camX, by, P.face, (1 - P.t / wt.roll) * Math.PI * 2 * P.rollDir * P.face); return; }
   blitHero(cx - camX + (P.state === 'stag' || P.state === 'gbreak' ? rnd(-1, 1) : 0), by, P.face);
   // parry window glint on the raised shield
   if (P.blocking && P.blockT <= SHD().parry) { ctx.fillStyle = '#fff2c0'; ctx.fillRect(Math.round(cx + P.face * 9 - camX), Math.round(P.y - 1), 1, 12); }
@@ -2743,6 +2963,13 @@ function drawWorld() {
     flameAt(b.x + 8, b.y + 13); flameAt(b.x + 6, b.y + 14);
     ctx.fillStyle = '#8a96a8'; ctx.fillRect(x + 7, y - 2, 2, 13); ctx.fillStyle = '#f2c14e'; ctx.fillRect(x + 5, y + 1, 6, 1); ctx.fillRect(x + 7, y - 4, 2, 2);
     lights.push({ x: x + 8, y: y + 6, r: 86, c: 'rgba(255,150,60,.3)' }); }
+  // rune altar: stone block with a glowing rune, dust motes rising
+  if (SPAWNS.altar) { const a = SPAWNS.altar, x = Math.round(a.x - camX), y = a.y, gl = (Math.sin(frameN * .07) + 1) / 2;
+    ctx.fillStyle = '#140c10'; ctx.fillRect(x + 1, y + 3, 14, 13);
+    ctx.fillStyle = '#5a5262'; ctx.fillRect(x + 2, y + 4, 12, 11); ctx.fillStyle = '#7a7286'; ctx.fillRect(x + 1, y + 3, 14, 2); ctx.fillStyle = '#433c4a'; ctx.fillRect(x + 2, y + 13, 12, 2);
+    ctx.fillStyle = gl > .5 ? '#e0b0ff' : '#c88ae8'; ctx.fillRect(x + 7, y + 6, 2, 6); ctx.fillRect(x + 5, y + 7, 2, 1); ctx.fillRect(x + 9, y + 9, 2, 1);
+    if (frameN % 9 === 0) particles.push({ x: a.x + rnd(3, 13), y: a.y + 3, vx: 0, vy: -rnd(.2, .5), life: 30, c: '#c88ae8', g: 0, s: 1 });
+    lights.push({ x: x + 8, y: y + 6, r: 40 + gl * 8, c: 'rgba(200,138,232,.22)' }); }
   // chest
   if (SPAWNS.chest) { const c = SPAWNS.chest, x = Math.round(c.x - camX), y = c.y, open = CH.opened[levelIdx];
     ctx.fillStyle = '#140c10'; ctx.fillRect(x - 1, y - 1, 14, 11);
@@ -2830,6 +3057,7 @@ function drawWorld() {
     if (e.ch === 'g' || e.ch === 'u') lights.push({ x: cx - camX, y: e.y + 4, r: 20, c: e.ch === 'g' ? 'rgba(120,220,80,.14)' : 'rgba(110,200,232,.16)' });
     if (e.atk === W_STANCE && e.st === 'act') lights.push({ x: cx - camX, y: e.y + 6, r: 24, c: 'rgba(160,232,255,.22)' });
     if (e.showBar > 0 && e.ch !== 'J') { const bw = Math.max(12, e.w + 4); bar(Math.round(cx - bw / 2 - camX), Math.round(e.y - 6), bw, 2, e.hp / e.maxhp, '#c8402a', '#3a1a1a'); }
+    if (e.fxb) drawFxPips(e, Math.round(cx - camX), Math.round(e.y - (e.ch === 'J' ? 10 : 9)));
     if (e.tname && e.ch !== 'J' && (e.showBar > 0 || e.agro)) drawText(e.tname, Math.round(cx - camX), Math.round(e.y - 13), e.tr.length ? TRAITS[e.tr[0]].col : '#c8a0e8', 1, 'center');
   }
   drawPlayer();
@@ -2890,7 +3118,18 @@ function drawHUD() {
   let hx = drawText('x' + P.flasks, 15, 19, '#f4ead6') + 6;
   hx = drawText('LV ' + CH.lvl, hx, 19, '#d8c8b8') + 6;
   drawTextS('XP ' + CH.xp, hx, 19, '#f2c14e');
-  if (CH.meal) drawTextS('FED: ' + MEALS[CH.meal].name, 6, 30, '#f2a860');
+  let sy = 30;
+  if (CH.meal) { drawTextS('FED: ' + MEALS[CH.meal].name, 6, sy, '#f2a860'); sy += 8; }
+  if (overloaded()) { drawTextS('OVERLOADED ' + Math.round(carryKg()) + '/' + carryMax() + ' KG', 6, sy, frameN % 60 < 40 ? '#e8574a' : '#a8443a'); sy += 8; }
+  // status meters filling up, and effects that are on
+  let sx = 6;
+  for (const k of FX_KEYS) {
+    const on = hasFx(P, k), v = P.fxb ? P.fxb[k] || 0 : 0;
+    if (!on && v < 1) continue;
+    const f = FX[k];
+    if (on) sx = drawTextS(f.name + ' ' + Math.ceil(P.fxa[k] / 60), sx, sy, f.c) + 6;
+    else { sx = drawTextS(f.name, sx, sy, f.c) + 2; bar(sx, sy + 1, 16, 3, v / 100, f.c, '#2a1c20'); sx += 22; }
+  }
   if (bannerT > 0) {
     ctx.globalAlpha = Math.max(0, Math.min(1, bannerT / 30, (260 - bannerT) / 20));
     drawTextS('AREA ' + (levelIdx + 1) + ' OF ' + LEVELS.length + (CH.ng ? '  NG+' + CH.ng : ''), W / 2, 26, '#d8c8b8', 1, 'center');
@@ -2994,61 +3233,129 @@ function drawMenu() {
     for (const p of PARTS) { drawPart(p, bx, 22); bx = drawText(p.toUpperCase() + ' ' + (CH.bag[p] || 0), bx + 10, 24, '#d8c8b8') + 10; }
   } else if (m.kind === 'bonfire') {
     drawTextS('HEALTH AND FLASKS RESTORED. MONSTERS RETURN.', W / 2, 26, '#d8c8b8', 1, 'center');
+  } else if (m.kind === 'altar') {
+    drawTextS('RUNE DUST ' + CH.dust + '   SALVAGE GEAR IN THE BAG FOR MORE', W / 2, 26, '#c88ae8', 1, 'center');
   }
+  const al = m.kind === 'altar';
   m.items.forEach((it, i) => {
-    const ck = m.kind === 'cook', y = 38 + i * (m.kind === 'level' ? 20 : 22), sel = i === m.sel, h = ck && it.meal ? 20 : 16;
+    const ck = m.kind === 'cook', y = al ? 36 + i * 15 : 38 + i * (m.kind === 'level' ? 20 : 22), sel = i === m.sel, h = al ? 13 : ck && it.meal ? 20 : 16;
     let label = it.label;
     if (it.stat) {
       const k = it.stat, g = gearBonus(k);
       label = it.label + ' ' + CH[k] + (g ? ' +' + g : '') + '   ' + statEffect(k) + '   +';
     }
     if (it.meal) label = (CH.meal === it.meal ? 'EATEN: ' : '') + it.label + '   ' + needText(it.meal);
-    uiButton(label, x, y, w, h, sel, () => { m.sel = i; it.act(); }, it.meal && !canCook(it.meal) ? '#6a5a5a' : null, it.meal ? 4 : undefined);
+    let col = it.meal && !canCook(it.meal) ? '#6a5a5a' : null;
+    if (it.cost) {
+      const id = it.temper && CH.eq[it.temper], maxed = id && upLv(id) >= MAX_UP;
+      label = it.temper ? 'TEMPER ' + gear(id).name + (maxed ? '   MAX' : '   ' + it.cost() + ' DUST') : it.label + '   ' + it.cost() + ' DUST';
+      col = CH.dust >= it.cost() && !maxed ? it.col || null : '#6a5a5a';
+    }
+    uiButton(label, x, y, w, h, sel, () => { m.sel = i; it.act(); }, col, it.meal ? 4 : undefined);
     if (it.meal) drawText(MEALS[it.meal].desc, W / 2, y + 12, canCook(it.meal) ? '#8fd6c3' : '#5a6a66', 1, 'center');
   });
-  if (m.msgT > 0) drawTextS(m.msg, W / 2, m.kind === 'cook' ? 148 : 140, '#f2c14e', 1, 'center');
+  if (m.msgT > 0) drawTextS(m.msg, W / 2, m.kind === 'cook' ? 148 : al ? 152 : 140, '#f2c14e', 1, 'center');
   drawText(isTouchUI() ? 'TAP TO CHOOSE   BLOCK: BACK' : 'W S: CHOOSE   ENTER: OK   ESC: BACK', W / 2, 160, '#8a7a6a', 1, 'center');
 }
-function statEffect(k) { return k === 'vit' ? 'HP ' + maxHP() : k === 'end' ? 'STAMINA ' + maxST() : k === 'str' ? 'DAMAGE X' + dmgMult().toFixed(2) : 'CRIT ' + Math.round(critChance() * 100) + '%'; }
+function statEffect(k) { return k === 'vit' ? 'HP ' + maxHP() : k === 'end' ? 'STAMINA ' + maxST() : k === 'str' ? 'DMG X' + dmgMult().toFixed(2) + ' LOAD ' + carryMax() : 'CRIT ' + Math.round(critChance() * 100) + '%'; }
 function cellBox(x, y, sz, col, fill) {
   ctx.fillStyle = fill; ctx.fillRect(x, y, sz, sz);
   ctx.fillStyle = col; ctx.fillRect(x, y, sz, 1); ctx.fillRect(x, y + sz - 1, sz, 1); ctx.fillRect(x, y, 1, sz); ctx.fillRect(x + sz - 1, y, 1, sz);
 }
+// tooltip / detail lines for an item: [text, color]
+function itemTip(id) {
+  const it = ITEMS[id], g = gear(id), worn = isWorn(id), n = copies(id), out = [[g.name, RAR[it.rar].c]];
+  out.push([RAR[it.rar].name + ' ' + SLOT_NAME[it.slot] + (worn ? '  WORN' : '') + (n > 1 ? '  X' + n : ''), '#8a7a6a']);
+  out.push([itemLine(id), '#8fd6c3']);
+  const bl = it.slot !== 'r' && it.slot !== 'n' ? bonusLine(id) : ''; if (bl) out.push([bl, '#7fe08a']);
+  const fl = fxLine(id); if (fl) out.push([fl, '#ff9a8a']);
+  const cl = cmpLine(id); if (cl) out.push(cl);
+  out.push(['WEIGHT ' + it.kg + ' KG   SALVAGE ' + salvageDust(id) + ' DUST' + (upLv(id) < MAX_UP ? '' : '   MAX +' + MAX_UP), '#b8a0c8']);
+  return out;
+}
+// compare with what is worn in the same slot
+function cmpLine(id) {
+  const it = ITEMS[id], cur = CH.eq[it.slot];
+  if (cur === id || EMPTY[it.slot] === cur) return null;
+  const a = gear(id), b = gear(cur), sg = v => (v > 0 ? '+' : '') + v;
+  let d, t;
+  if (it.slot === 'w') { d = a.l - b.l; t = 'ATK ' + sg(Math.round(d * dmgMult())) + ' / ' + sg(Math.round((a.h - b.h) * dmgMult())); }
+  else if (it.slot === 's') { d = Math.round((a.absorb - b.absorb) * 100); t = 'BLOCK ' + sg(d) + '%'; }
+  else if (it.slot === 'a') { d = Math.round((a.def - b.def) * 100); t = 'DEF ' + sg(d) + '%'; }
+  else { const sa = STATS.reduce((s, k) => s + ((a.b || {})[k] || 0), 0), sb = STATS.reduce((s, k) => s + ((b.b || {})[k] || 0), 0); d = sa - sb; t = 'STATS ' + sg(d); }
+  const kd = it.kg - ITEMS[cur].kg;
+  return ['VS WORN: ' + t + '   KG ' + sg(kd), d > 0 ? '#7fe08a' : d < 0 ? '#e8574a' : '#b8a596'];
+}
+function drawTip(lines, px, py) {
+  const w = Math.max(...lines.map(l => textW(l[0]))) + 8, h = lines.length * 8 + 5;
+  let x = px + 8, y = py + 8;
+  if (x + w > W - 2) x = px - w - 4; if (y + h > H - 2) y = H - 2 - h; x = Math.max(2, x);
+  ctx.fillStyle = 'rgba(14,9,12,.95)'; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = lines[0][1]; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h);
+  lines.forEach(([t, c], i) => drawText(t, x + 4, y + 3 + i * 8, c));
+}
 function drawBag(m) {
-  const list = m.list, sel = list[m.sel];
+  const list = m.list, sel = list[m.sel], over = overloaded();
+  let hov = null;
+  const inCell = (x, y) => ptr.on && ptr.x >= x && ptr.x < x + 20 && ptr.y >= y && ptr.y < y + 20;
   uiButton('BACK', 4, 4, 34, 13, false, m.back);
+  drawText('LOAD ' + Math.round(carryKg()) + '/' + carryMax() + ' KG', 42, 5, over ? '#e8574a' : '#d8c8b8'); // right side is under the HTML buttons
+  drawText('DUST ' + CH.dust, 42, 13, '#c88ae8');
   // worn gear
   SLOTS.forEach((sl, i) => {
     const id = CH.eq[sl], cx = 60 + i * 50, y = 24;
     cellBox(cx, y, 20, id === sel ? '#f2c14e' : RAR[ITEMS[id].rar].c, 'rgba(30,20,24,.9)');
     gearIconC(id, cx + 10, y + 10);
+    if (upLv(id)) drawText('+' + upLv(id), cx + 19, y + 14, '#f2c14e', 1, 'right');
     drawText(SLOT_NAME[sl], cx + 10, y + 22, '#8a7a6a', 1, 'center');
-    uiRects.push({ x: cx, y, w: 20, h: 20, fn: () => { const j = list.indexOf(id); if (j >= 0) { m.sel = j; equipItem(id); } } });
+    if (inCell(cx, y) && EMPTY[sl] !== id) hov = id;
+    uiRects.push({ x: cx, y, w: 20, h: 20, fn: () => { const j = list.indexOf(id); if (j >= 0) { m.sel = j; bagPick(j); } } });
   });
-  // bag grid
-  const x0 = (W - BAG_COLS * 22) / 2 + 1, y0 = 56;
-  for (let i = 0; i < BAG_COLS * 3; i++) {
-    const id = list[i], cx = x0 + (i % BAG_COLS) * 22, cy = y0 + ((i / BAG_COLS) | 0) * 22;
+  // bag grid, BAG_ROWS rows at a time; scroll with arrows, wheel or the side buttons
+  const x0 = (W - BAG_COLS * 22) / 2 + 1, y0 = 56, top = m.top || 0, wornSeen = new Set();
+  for (let i = 0; i < top * BAG_COLS; i++) if (list[i] && isWorn(list[i])) wornSeen.add(list[i]);
+  for (let c = 0; c < BAG_COLS * BAG_ROWS; c++) {
+    const i = c + top * BAG_COLS, id = list[i], cx = x0 + (c % BAG_COLS) * 22, cy = y0 + ((c / BAG_COLS) | 0) * 22;
     if (!id) { cellBox(cx, cy, 20, '#2a1c20', 'rgba(20,12,16,.6)'); continue; }
-    const it = ITEMS[id], worn = CH.eq[it.slot] === id;
-    cellBox(cx, cy, 20, i === m.sel ? '#ffffff' : RAR[it.rar].c, i === m.sel ? 'rgba(242,193,78,.25)' : 'rgba(30,20,24,.9)');
+    const it = ITEMS[id], worn = isWorn(id) && !wornSeen.has(id);
+    if (worn) wornSeen.add(id);
+    const bad = m.comb && !canMelt(m.comb, id), tgt = m.comb === id && i === list.indexOf(id);
+    cellBox(cx, cy, 20, tgt ? '#f2c14e' : i === m.sel ? '#ffffff' : m.comb && !bad ? '#7fe08a' : RAR[it.rar].c, i === m.sel ? 'rgba(242,193,78,.25)' : 'rgba(30,20,24,.9)');
+    if (bad) ctx.globalAlpha = .35;
     gearIconC(id, cx + 10, cy + 10);
+    ctx.globalAlpha = 1;
     if (worn) drawText('E', cx + 2, cy + 2, '#7fe08a');
-    uiRects.push({ x: cx, y: cy, w: 20, h: 20, fn: () => { if (m.sel === i || !isTouchUI()) equipItem(id); m.sel = i; } });
+    if (upLv(id)) drawText('+' + upLv(id), cx + 19, cy + 14, '#f2c14e', 1, 'right');
+    if (freshItems.has(id)) { ctx.fillStyle = '#f2c14e'; ctx.fillRect(cx + 16, cy + 2, 2, 2); }
+    if (inCell(cx, cy)) hov = id;
+    uiRects.push({ x: cx, y: cy, w: 20, h: 20, fn: () => { if (m.sel === i || !isTouchUI() || m.comb) { m.sel = i; bagPick(i); } else { m.sel = i; m.salv = null; } } });
   }
+  const maxTop = bagMaxTop();
+  if (maxTop > 0) {
+    drawText((top + 1) + '/' + (maxTop + 1), W - 3, 82, '#8a7a6a', 1, 'right');
+    uiButton('<', W - 16, 56, 14, 20, false, () => { m.top = Math.max(0, top - 1); }, top > 0 ? null : '#4a3a3a');
+    uiButton('>', W - 16, 100, 14, 20, false, () => { m.top = Math.min(maxTop, top + 1); }, top < maxTop ? null : '#4a3a3a');
+  }
+  if (sel) freshItems.delete(sel);
+  if (hov) freshItems.delete(hov);
   // details of the picked item
   if (sel) {
-    const it = ITEMS[sel], worn = CH.eq[it.slot] === sel;
-    drawTextS(it.name, W / 2, 124, RAR[it.rar].c, 1, 'center');
-    drawText(RAR[it.rar].name + ' ' + SLOT_NAME[it.slot] + (worn ? '  WORN' : ''), W / 2, 133, '#8a7a6a', 1, 'center');
-    const extra = it.slot !== 'r' && it.slot !== 'n' ? bonusLine(sel) : '';
-    drawText(itemLine(sel) + (extra ? '  ' + extra : ''), W / 2, 141, '#8fd6c3', 1, 'center');
+    const t = itemTip(sel);
+    drawTextS(t[0][0], W / 2, 125, t[0][1], 1, 'center');
+    drawText(t[1][0] + '   ' + ITEMS[sel].kg + ' KG', W / 2, 133, t[1][1], 1, 'center');
+    drawText(t.slice(2, -1).map(l => l[0]).slice(0, 2).join('  '), W / 2, 141, '#8fd6c3', 1, 'center');
+    const rest = t.slice(2, -1).slice(2); if (rest.length) drawText(rest.map(l => l[0]).join('  '), W / 2, 149, rest[rest.length - 1][1], 1, 'center');
   }
-  // cooking parts carried
+  // touch buttons for combine and salvage, cooking parts in between
+  uiButton(m.comb ? 'CANCEL' : 'COMBINE', 4, 156, 50, 11, !!m.comb, () => uiKey('combine'));
+  uiButton(sel && m.salv === sel ? 'SURE?' : 'SALVAGE', W - 54, 156, 50, 11, !!(sel && m.salv === sel), () => uiKey('salvage'), sel && m.salv === sel ? '#e8574a' : null);
   let bx = W / 2 - 92;
-  for (const p of PARTS) { drawPart(p, bx, 148); bx = drawText(p.toUpperCase() + ' ' + (CH.bag[p] || 0), bx + 10, 150, '#d8c8b8') + 10; }
-  if (m.msgT > 0) drawTextS(m.msg, W / 2, 163, '#f2c14e', 1, 'center');
-  else drawText(isTouchUI() ? 'TAP TWICE TO WEAR   BLOCK: BACK' : 'ARROWS: PICK   ENTER: WEAR OR TAKE OFF   I: BACK', W / 2, 163, '#8a7a6a', 1, 'center');
+  for (const p of PARTS) { drawPart(p, bx, 156); bx = drawText(p.toUpperCase() + ' ' + (CH.bag[p] || 0), bx + 10, 158, '#d8c8b8') + 10; }
+  if (m.msgT > 0) drawTextS(m.msg, W / 2, 169, '#f2c14e', 1, 'center');
+  else if (m.comb) drawText('PICK THE ITEM TO MELT. C OR ESC: CANCEL', W / 2, 169, '#7fe08a', 1, 'center');
+  else if (over) drawText('TOO HEAVY! SALVAGE OR COMBINE GEAR, OR RAISE STRENGTH', W / 2, 169, '#e8574a', 1, 'center');
+  else drawText(isTouchUI() ? 'TAP TWICE TO WEAR' : 'ENTER: WEAR  C: COMBINE  X: SALVAGE  I: BACK', W / 2, 169, '#8a7a6a', 1, 'center');
+  if (hov && !isTouchUI()) drawTip(itemTip(hov), ptr.x, ptr.y);
 }
 function drawStats(m) {
   heroIdle(CH.cls, CH.eq); blitHero(44, 112, 1, 0, 3);
@@ -3063,9 +3370,11 @@ function drawStats(m) {
   });
   const sh = SHD(), ar = ARM();
   const rows = [['MAX HP', maxHP()], ['STAMINA', maxST()], ['DAMAGE', 'X' + dmgMult().toFixed(2)], ['CRIT CHANCE', Math.round(critChance() * 100) + '%'],
-    ['DEFENSE', Math.round(ar.def * 100) + '%'], ['BLOCK', Math.round(sh.absorb * 100) + '%'], ['PARRY WINDOW', sh.parry], ['WEIGHT', ar.wt.toUpperCase()]];
+    ['DEFENSE', Math.round(ar.def * 100) + '%'], ['BLOCK', Math.round(sh.absorb * 100) + '%'], ['PARRY WINDOW', sh.parry], ['LOAD', Math.round(carryKg()) + '/' + carryMax() + ' KG']];
   rows.forEach(([n, v], i) => { const y = 88 + (i >> 1) * 11, cx = i & 1 ? 214 : 92; drawText(n, cx, y, '#8a7a6a'); drawText(String(v), cx + 66, y, '#f4ead6'); });
-  drawText('GEAR GIVES THE GREEN BONUS. CRIT DEALS 1.5X DAMAGE.', W / 2, 140, '#8fd6c3', 1, 'center');
+  const hf = heroFx(), fxs = FX_KEYS.filter(k => hf[k]).map(k => FX[k].name + ' ' + hf[k]), rs = FX_KEYS.filter(k => fxRes(k)).map(k => FX[k].name + ' ' + Math.round(fxRes(k) * 100) + '%');
+  drawText('ON HIT: ' + (fxs.join('  ') || 'NONE') + '    RESIST: ' + (rs.join('  ') || 'NONE'), W / 2, 133, '#ff9a8a', 1, 'center');
+  drawText('GEAR GIVES THE GREEN BONUS. CRIT DEALS 1.5X DAMAGE. STR RAISES CARRY LOAD.', W / 2, 141, '#8fd6c3', 1, 'center');
   uiButton('BACK', 130, 150, 60, 14, true, m.back);
 }
 function drawWin() {
@@ -3149,10 +3458,11 @@ function render() {
     if (fadeT > 0) { ctx.fillStyle = `rgba(10,4,8,${fadeT / 30})`; ctx.fillRect(0, 0, W, H); }
   }
   drawText(VERSION, W / 2, 1, 'rgba(216,200,184,.45)', 1, 'center'); // build watermark
-  const want = isTouchUI() && state === 'play' && !!interact;
+  const ulabel = interact ? interact.label : P && state === 'play' && onLedge() ? 'DROP' : '';
+  const want = isTouchUI() && state === 'play' && !!ulabel;
   document.body.classList.toggle('has-fire', hasFire());
   document.body.classList.toggle('in-play', state === 'play');
-  if (want !== useShown) { useShown = want; const b = document.getElementById('bUse'); b.style.display = want ? 'flex' : 'none'; b.textContent = interact ? (interact.label === 'OPEN' ? 'OPEN' : 'REST') : 'USE'; }
+  if ((want && ulabel) !== useShown) { useShown = want && ulabel; const b = document.getElementById('bUse'); b.style.display = want ? 'flex' : 'none'; if (want) b.textContent = ulabel; }
 }
 
 // ================= Main loop =================
