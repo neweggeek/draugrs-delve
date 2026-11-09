@@ -41,6 +41,8 @@
 - Hits: hitstop, screen shake, sparks, damage numbers. Enemies flash white on hit.
 - Enemies squash on wind-up, stretch on the strike, squash on landing and when hit.
 - Dead enemies break into their own sprite pixels, which bounce on the floor.
+- Walking enemies step with a two-frame leg cycle; idle ones breathe.
+- The hero also breaks into pixels on death. Areas fade in from black on load and respawn.
 - Hero kicks up dust on jump, landing and roll.
 - Below 25% HP: red screen edges throb with a heartbeat sound.
 

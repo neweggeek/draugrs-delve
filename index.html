@@ -1337,7 +1337,7 @@ addEventListener('resize', resize); resize();
 const isTouchUI = () => document.body.classList.contains('is-touch');
 
 // ================= Game state =================
-let state = 'title', frameN = 0, hitstop = 0, shake = 0, deadT = 0, winT = 0, clearT = 0, bannerT = 0;
+let state = 'title', frameN = 0, hitstop = 0, shake = 0, deadT = 0, winT = 0, clearT = 0, bannerT = 0, fadeT = 0;
 let P = null, enemies = [], projs = [], hazards = [], pickups = [], particles = [], texts = [], arenaLocked = false, boss = null, bossDeadT = 0;
 let levelIdx = 0, menu = null, titleSel = 0, titleArea = 0, classSel = 0, interact = null, popup = null, newConfirm = false;
 const ETYPES = {
@@ -1379,7 +1379,7 @@ function loadLevel(n) {
   projs = []; hazards = []; particles = []; texts = []; popup = null;
   pickups = SPAWNS.coins.map(c => ({ kind: 'shard', x: c.x, y: c.y, w: 8, h: 8, t: rnd(0, 60) }))
     .concat(SPAWNS.potions.map(p => ({ kind: 'flask', x: p.x, y: p.y, w: 8, h: 8, t: 0 })));
-  arenaLocked = false; bossDeadT = 0; hitstop = 0; shake = 0; camX = 0;
+  arenaLocked = false; bossDeadT = 0; hitstop = 0; shake = 0; camX = 0; fadeT = 30;
   Music.play(GEN[n]);
 }
 function enterArea(n) { loadLevel(n); state = 'play'; bannerT = 260; clearLatches(); }
@@ -1391,21 +1391,24 @@ function puff(x, y, col, n = 10, spd = 1.6) {
 function spark(x, y, col = '#f8d048', n = 5) { puff(x, y, col, n, 2.2); }
 function ftext(x, y, s, col = '#f4ead6') { texts.push({ x, y, s: String(s), col, life: 50 }); }
 function dust(x, y, n = 8, sp = 10, c = '#8a5a40') { for (let i = 0; i < n; i++) particles.push({ x: x + rnd(-sp, sp), y, vx: rnd(-1.4, 1.4) * sp / 10, vy: -rnd(.3, 1), life: 22, c, g: .05, s: sp < 10 ? 1 : 2 }); }
-// opaque pixels of a sprite (cached), used to break a dead enemy into its own pixels
-function sprPixels(s) {
-  if (s.px) return s.px;
-  const d = s.c[0].getContext('2d').getImageData(0, 0, s.w, s.h).data; s.px = [];
-  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) { const i = (y * s.w + x) * 4; if (d[i + 3] > 0) s.px.push([x, y, `rgb(${d[i]},${d[i + 1]},${d[i + 2]})`]); }
-  return s.px;
+// opaque pixels of a canvas as [x, y, color], used to break a body into its own pixels
+function canvasPixels(cv, w, h) {
+  const d = cv.getContext('2d').getImageData(0, 0, w, h).data, out = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (d[i + 3] > 0) out.push([x, y, `rgb(${d[i]},${d[i + 1]},${d[i + 2]})`]); }
+  return out;
+}
+const sprPixels = s => s.px || (s.px = canvasPixels(s.c[0], s.w, s.h));
+// fling pixels out from (cx, cy); x0, y0 = where the image's top left sits in the world
+function burstPixels(px, w, x0, y0, sc, fl, cx, cy, life = 1) {
+  for (const [ix, iy, c] of px) {
+    if (sc < 1 && Math.random() > sc) continue;
+    const x = x0 + (fl ? w - 1 - ix : ix) * sc, y = y0 + iy * sc, a = Math.atan2(y - cy, x - cx);
+    particles.push({ x, y, vx: Math.cos(a) * rnd(.2, 1.4) + rnd(-.3, .3), vy: Math.sin(a) * rnd(.2, 1.2) - rnd(.4, 1.4), life: rnd(36, 70) * life | 0, c, g: .1, s: 1, b: true });
+  }
 }
 function shatter(e) {
-  const s = e.spr, sc = e.small ? .6 : 1, cx = e.x + e.w / 2, by = e.y + e.h + 1, fl = e.face < 0;
-  const x0 = cx - ((s.bb.x0 + s.bb.x1) / 2) * sc, y0 = by - s.bb.y1 * sc;
-  for (const [px, py, c] of sprPixels(s)) {
-    if (sc < 1 && Math.random() > sc) continue;
-    const x = x0 + (fl ? s.w - 1 - px : px) * sc, y = y0 + py * sc, a = Math.atan2(y - (e.y + e.h / 2), x - cx);
-    particles.push({ x, y, vx: Math.cos(a) * rnd(.2, 1.4) + rnd(-.3, .3), vy: Math.sin(a) * rnd(.2, 1.2) - rnd(.4, 1.4), life: rnd(36, 70) | 0, c, g: .1, s: 1, b: true });
-  }
+  const s = e.spr, sc = e.small ? .6 : 1, cx = e.x + e.w / 2, by = e.y + e.h + 1;
+  burstPixels(sprPixels(s), s.w, cx - ((s.bb.x0 + s.bb.x1) / 2) * sc, by - s.bb.y1 * sc, sc, e.face < 0, cx, e.y + e.h / 2);
 }
 
 // ================= Player =================
@@ -1451,8 +1454,10 @@ function resolveHit(src, o) {
 }
 function die() {
   if (state === 'dead') return;
-  P.hp = 0; P.state = 'dead'; state = 'dead'; deadT = 0; sfx('died');
-  puff(P.x + P.w / 2, P.y + 7, '#6ec8e8', 20, 2);
+  paintHero(heroPose()); const cx = P.x + P.w / 2, fl = P.face < 0;
+  burstPixels(canvasPixels(HB, 48, 40), 48, cx - (fl ? 48 - HOX : HOX), P.y + P.h + 1 - HOY, 1, fl, cx, P.y + 8, 2);
+  P.hp = 0; P.state = 'dead'; state = 'dead'; deadT = 0; sfx('died'); shake = 6;
+  puff(cx, P.y + 7, '#6ec8e8', 20, 2);
 }
 function startAttack(heavy) {
   const w = WPN();
@@ -1977,7 +1982,7 @@ function uiTap(x, y) {
   if (state === 'clear' || state === 'win') uiKey('ok');
 }
 function step() {
-  frameN++;
+  frameN++; if (fadeT > 0) fadeT--;
   if (menu && menu.msgT > 0) menu.msgT--;
   if (state === 'title' || state === 'class' || state === 'menu') { updateParticles(); return; }
   if (state === 'win') { winT++; updateParticles(); return; }
@@ -2043,7 +2048,23 @@ function enemyScale(e) {
   else if (e.st === 'act' && e.atk) k = -.1 * Math.max(0, 1 - (e.atk.act - e.t2) / 8);
   if (e.land > 0) k = Math.max(k, e.land * .02);
   if (e.flash > 0) k = Math.max(k, e.flash * .012);
+  if (!k && e.grav && !e.atk && e.st === 'idle' && Math.abs(e.vx) < .2) k = ((e.t / 32) | 0) % 2 ? .05 : 0; // breathing
   return [1 + k, 1 - k];
+}
+// walk cycle for sprites drawn as one grid: two frames, each lifts one half of the bottom rows (one leg) by a pixel
+function legFrames(s) {
+  if (s.legs) return s.legs;
+  const n = s.h < 10 ? 2 : 3, y0 = s.bb.y1 - n, mid = Math.round((s.bb.x0 + s.bb.x1) / 2);
+  return s.legs = [0, 1].map(side => {
+    const o = { ...s, c: [], wc: [], rc: [] };
+    for (const k of ['c', 'wc', 'rc']) for (let i = 0; i < 2; i++) {
+      const src = s[k][i], d = document.createElement('canvas'); d.width = s.w; d.height = s.h;
+      const x = d.getContext('2d'), m = i ? s.w - mid : mid, hx = side ? m : 0, hw = side ? s.w - m : m;
+      x.drawImage(src, 0, 0); x.clearRect(hx, y0, hw, n); x.drawImage(src, hx, y0, hw, n, hx, y0 - 1, hw, n);
+      o[k][i] = d;
+    }
+    return o;
+  });
 }
 // weapon swing angles per type: [rest, wind-up, swing end]; heavy winds further back
 const SWING = { sword: [-50, -150, 50], axe: [-140, -175, 60], dagger: [35, -30, 5] };
@@ -2159,6 +2180,7 @@ function drawWorld() {
     let spr = e.spr, tint = enemyTint(e), ox = 0, oy = 0;
     if (e.ch === 'b' && !e.dazed && ((e.t / 8) | 0) % 2) spr = SPR.bat2;
     if (e.ch === 'w' && e.vuln) spr = SPR.wispDim;
+    if (e.grav && !e.small && e.onGround && Math.abs(e.vx) > .2 && 'rthakJ'.includes(e.ch)) spr = legFrames(spr)[((e.t / 8) | 0) % 2];
     if (e.ch === 's' && (e.mode === 'ceil' || e.mode === 'climb' || (e.st === 'act' && e.atk === SP_DROP))) {
       const top = Math.floor(e.homeY / TS) * TS; ctx.fillStyle = '#8a8088'; ctx.fillRect(Math.round(cx - camX), top, 1, Math.max(0, Math.round(e.y - top + 1)));
     }
@@ -2411,6 +2433,7 @@ function render() {
       drawSpr(SPR[ETYPES[nx.mob].spr], W / 2, 124 + Math.round(Math.sin(frameN * .1) * 2), -1, false, 0, 0, 0);
       if (clearT > 50 && ((frameN / 30) | 0) % 2 === 0) drawTextS(isTouchUI() ? 'TAP TO GO ON' : 'PRESS ANY BUTTON', W / 2, 140, '#f4ead6', 1, 'center');
     }
+    if (fadeT > 0) { ctx.fillStyle = `rgba(10,4,8,${fadeT / 30})`; ctx.fillRect(0, 0, W, H); }
   }
   const want = isTouchUI() && state === 'play' && !!interact;
   document.body.classList.toggle('has-fire', hasFire());
