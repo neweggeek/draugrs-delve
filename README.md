@@ -44,7 +44,7 @@ Saves live in the browser's localStorage per address, so `file://`, `localhost:8
 | Block (block late to parry) | K or right click | BLOCK | LB / LT / RT |
 | Roll | L or Shift | ROLL | B |
 | Drink flask | Q | HEAL | Y |
-| Cast fireball (after the first Jarl) | F | FIRE | RB |
+| Cast fireball (tap), hold to charge a big one | F | FIRE | RB |
 | Use: bonfire, chest, altar, rest shrine | E | USE | D-pad up |
 | Drop through a ledge | S or Down | USE (shows DROP) | stick or D-pad down |
 | Bag (inventory) | I | BAG | Select |
@@ -64,7 +64,7 @@ Telegraphs: white flash = block or parry, red flash = roll away.
 - Ten hand-built areas, one enemy each: rats, bats, thralls, archers, spiders, slimes, wisps, shamblers, shieldbearers, the Jarl. Deeper floors add green, blue and red slimes, spider warriors and the Spider Queen mini boss, plus mixed traits (IRON, SWIFT, GIANT, ...) and gold elites.
 - Concept art look: mossy stone halls with arches, portcullises and chains, spike traps, and painted monsters with full animation (idle, walk, wind-up, strike, hurt).
 - Every mob has a rule to learn (rats hunt in packs, thralls reassemble, wisps glow, ...). See `docs/DESIGN.md`.
-- Bonfires: rest to heal, refill flasks, level up, cook, repair. Resting brings monsters back.
+- Bonfires: rest to heal, refill flasks, level up, learn magic, cook, repair. Resting brings monsters back.
 - Rest shrine in the middle of each area: a safe zone that also works as a checkpoint.
 - Die and your XP stays where you fell. Get back to it or lose it.
 - Three classes (Knight, Berserker, Rogue), four stats (VIT, END, STR, DEX).
@@ -73,7 +73,7 @@ Telegraphs: white flash = block or parry, red flash = roll away.
 - Durability: weapon, shield and armor wear down; repair at a bonfire.
 - Status effects: bleed, poison, burn, frost, on you and on monsters.
 - Cooking: monster parts make one meal buff at a time.
-- Beat the Jarl to learn Fireball, a ranged spell that costs stamina.
+- Fireball: learn it for XP at a bonfire (MAGIC) or free by beating the Jarl. Hold to charge: bigger, faster, harder hitting. Magic skills (Ember, Kindle, Focus, Inferno, Twin Flame) upgrade it with XP.
 - Music: title theme (`docs/music/dungeon_music_preview.mp3`), generated music per area with a fight layer, shrine lullaby, boss theme.
 - Progress saves in the browser (also when the tab is hidden or closed).
 

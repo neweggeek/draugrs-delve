@@ -56,7 +56,7 @@ body.is-touch.portrait #rot{display:block}
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V17 2026-11-09 CONCEPT ART';
+const VERSION = 'V18 2026-11-09 MAGIC';
 const W = 320, H = 176, TS = 16;
 // RES = screen pixels per game pixel. Game logic and layout stay 320x176, but every canvas is drawn at RES times
 // the detail: sprites are upscaled with finer outlines and shading, tiles and walls get half pixel texture.
@@ -2289,7 +2289,7 @@ const canCook = k => Object.entries(MEALS[k].need).every(([p, c]) => (CH.bag[p] 
 let CH = null, SAVE = null;
 function newChar(cls) {
   const c = CLASSES[cls];
-  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null, ng: 0, deaths: 0, time: 0, up: {}, dust: 0, dur: {} };
+  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null, ng: 0, deaths: 0, time: 0, up: {}, dust: 0, dur: {}, sk: {} };
 }
 function save() { try { localStorage.setItem('dd2', JSON.stringify(CH)); SAVE = CH; } catch (e) {} }
 // old saves (before rings, amulets and DEX) are filled in with defaults
@@ -2297,7 +2297,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem('dd2') || 
   s.bag = s.bag || {}; s.meal = MEALS[s.meal] ? s.meal : null;
   if (s.beat) s.unlocked = Math.max(s.unlocked, 11); // saves from before floors 11 to 100 stopped at 10
   if (s.dex == null) s.dex = CLASSES[s.cls].dex;
-  s.cp = s.cp ?? -1; s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0; s.up = s.up || {}; s.dust = s.dust || 0; s.dur = s.dur || {};
+  s.cp = s.cp ?? -1; s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0; s.up = s.up || {}; s.dust = s.dust || 0; s.dur = s.dur || {}; s.sk = s.sk || {};
   for (const k in EMPTY) if (!ITEMS[s.eq[k]]) s.eq[k] = EMPTY[k];
   s.inv = s.inv.filter(id => ITEMS[id]); return s; } } catch (e) {} return null; }
 SAVE = loadSave();
@@ -2309,12 +2309,25 @@ const maxST = () => 40 + stat('end') * 6;
 const dmgMult = () => (1 + (stat('str') - 10) * 0.07) * (CH.meal === 'bread' ? 1.25 : 1);
 const critChance = () => clamp(.03 + (stat('dex') - 10) * .02, 0, .4);
 const lvlCost = () => Math.round(60 + 25 * CH.lvl + 3 * CH.lvl * CH.lvl);
-const hasFire = () => !!(CH && CH.beat);
 const FIRE_COST = 30;
+// Magic skills: bought with XP at a bonfire (MAGIC). Beating the first Jarl still teaches FIREBALL for free.
+const SKILLS = {
+  fire:   { name: 'FIREBALL',   max: 1, cost: [600],             info: 'THROW FIRE. HOLD TO CHARGE A BIGGER ONE' },
+  ember:  { name: 'EMBER',      max: 3, cost: [500, 1100, 2200], info: 'FIREBALL DAMAGE +25% PER RANK' },
+  kindle: { name: 'KINDLE',     max: 3, cost: [400, 900, 1800],  info: 'FULL CHARGE 20% SOONER PER RANK' },
+  focus:  { name: 'FOCUS',      max: 3, cost: [450, 1000, 2000], info: 'SPELLS COST 15% LESS STAMINA PER RANK' },
+  blast:  { name: 'INFERNO',    max: 2, cost: [1200, 2800],      info: 'FULL CHARGE BURSTS AND BURNS FOES NEAR THE HIT' },
+  twin:   { name: 'TWIN FLAME', max: 1, cost: [2500],            info: 'FULL CHARGE THROWS THREE FIREBALLS' }
+};
+const skLv = k => !CH ? 0 : (CH.sk && CH.sk[k]) || (k === 'fire' && CH.beat ? 1 : 0);
+const hasFire = () => skLv('fire') > 0;
+const fireCost = () => Math.round(FIRE_COST * (1 - .15 * skLv('focus')));
+const chargeFull = () => 60 - 12 * skLv('kindle'); // steps from press to a full charge
+const CHARGE_COST = 12; // extra stamina drawn while charging, spread over the charge
 const WPN = () => gear(CH.eq.w), SHD = () => gear(CH.eq.s), ARM = () => gear(CH.eq.a);
 
 // ================= Input =================
-const keys = { left: false, right: false, jump: false, atk: false, block: false, roll: false, down: false };
+const keys = { left: false, right: false, jump: false, atk: false, block: false, roll: false, down: false, fire: false };
 const touch = Object.assign({}, keys), pad = Object.assign({}, keys), mouse = { atk: false, block: false };
 const latch = { jump: false, atk: false, roll: false, heal: false, use: false, down: false, fire: false };
 function consume(k) { const v = latch[k]; latch[k] = false; return v; }
@@ -2402,7 +2415,7 @@ function pollPad() {
   const now = { left: ax < -0.4 || b(14), right: ax > 0.4 || b(15), up: ay < -0.5 || b(12), down: ay > 0.5 || b(13), jump: b(0), roll: b(1), atk: b(2), heal: b(3), block: b(4) || b(6) || b(7), fire: b(5), use: b(12), ok: b(0) || b(9), back: b(1), sel: b(8), l10: b(4), r10: b(5) };
   const edge = k => now[k] && !prevPad[k];
   if (state === 'play') {
-    pad.left = now.left; pad.right = now.right; pad.jump = now.jump; pad.atk = now.atk; pad.block = now.block; pad.roll = now.roll; pad.down = now.down;
+    pad.left = now.left; pad.right = now.right; pad.jump = now.jump; pad.atk = now.atk; pad.block = now.block; pad.roll = now.roll; pad.down = now.down; pad.fire = now.fire;
     for (const k of ['jump', 'atk', 'roll', 'heal', 'use', 'down', 'fire']) if (edge(k)) latch[k] = true;
     if (edge('ok') && b(9)) openPause();
     else if (edge('sel')) openBag();
@@ -2699,7 +2712,7 @@ function updatePlayer() {
         if ((k === 'light' || k === 'heavy') && P.stam > 0) { startAttack(k === 'heavy', P.chain > 0); P.buf = null; }
         else if (k === 'roll' && P.onGround && P.stam > 0) { if (P.webT > 0) { ftext(P.x + 5, P.y - 10, 'CAN NOT ROLL', '#e8e8e8'); P.buf = null; } else { startRoll(ax); P.buf = null; } }
         else if (k === 'fire') {
-          if (P.stam > 0) { P.state = 'cast'; P.t = 24; P.stam -= FIRE_COST; P.stamDelay = 40; if (ax) P.face = ax; }
+          if (P.stam > 0) { P.state = 'charge'; P.t = 0; P.stam -= fireCost(); P.stamDelay = 40; if (ax) P.face = ax; }
           else { ftext(P.x + 5, P.y - 10, 'NO STAMINA', '#c8a090'); sfx('err'); }
           P.buf = null;
         }
@@ -2741,12 +2754,22 @@ function updatePlayer() {
       if (P.t === 22) { P.hp = Math.min(maxHP(), P.hp + Math.round(maxHP() * .45)); sfx('heal'); clearFx(P, ['poison', 'burn']); puff(P.x + P.w / 2, P.y + 4, '#7fe08a', 10); }
       if (P.t <= 0) P.state = 'free';
       break;
+    case 'charge': {
+      // hold FIRE to grow the fireball, let go to throw it. A tap throws a small one at once. Roll cancels.
+      P.blocking = false; P.vx += (ax * .3 * slow - P.vx) * (P.onGround ? .2 : .05); if (ax) P.face = ax;
+      const full = chargeFull();
+      P.stamDelay = Math.max(P.stamDelay, 30);
+      if (P.t < full) { if (P.stam > 0) { P.t++; P.stam -= CHARGE_COST / full; } } else P.t++;
+      if (P.t === full) { sfx('parry'); spark(P.x + P.w / 2 + P.face * 7, P.y + 5, '#fff2c0', 10); ftext(P.x + P.w / 2, P.y - 12, 'FULL', '#f8d048'); }
+      if (frameN % 3 === 0) { const a = rnd(0, 6.28), r = 10 + rnd(0, 6), hx = P.x + P.w / 2 + P.face * 7, hy = P.y + 5;
+        particles.push({ x: hx + Math.cos(a) * r, y: hy + Math.sin(a) * r, vx: -Math.cos(a) * r / 10, vy: -Math.sin(a) * r / 10, life: 10, c: P.t >= full ? '#fff2c0' : '#f08030', g: 0, s: 1 }); }
+      if (P.buf && P.buf.k === 'roll') { P.state = 'free'; break; }
+      if (!inp('fire')) { P.castC = Math.min(1, P.t / full); P.state = 'cast'; P.t = 15; }
+      break;
+    }
     case 'cast':
       P.blocking = false; P.vx *= .8; P.t--;
-      if (P.t === 14) {
-        projs.push({ kind: 'fireball', mine: true, x: P.x + P.w / 2 - 3 + P.face * 8, y: P.y + 3, w: 6, h: 6, vx: P.face * 3.4, vy: 0, life: 100, dmg: Math.round(34 * dmgMult()) });
-        sfx('fire'); spark(P.x + P.w / 2 + P.face * 8, P.y + 6, '#f08030', 6);
-      }
+      if (P.t === 14) castFire(P.castC || 0);
       if (P.t <= 0) P.state = 'free';
       break;
     case 'stag': case 'gbreak':
@@ -2755,7 +2778,7 @@ function updatePlayer() {
   }
   if (P.blocking && !wasBlock) P.blockT = 0; else if (P.blocking) P.blockT++; else P.blockT = 99;
   if (P.stamDelay > 0) P.stamDelay--;
-  else if (P.state !== 'atk' && P.state !== 'roll' && P.state !== 'cast') P.stam = Math.min(maxST(), P.stam + (P.blocking ? .25 : .7) * wt.regen * (CH.meal === 'jelly' ? 1.5 : 1) * (hasFx(P, 'frost') ? .5 : 1));
+  else if (P.state !== 'atk' && P.state !== 'roll' && P.state !== 'cast' && P.state !== 'charge') P.stam = Math.min(maxST(), P.stam + (P.blocking ? .25 : .7) * wt.regen * (CH.meal === 'jelly' ? 1.5 : 1) * (hasFx(P, 'frost') ? .5 : 1));
   if (P.chain > 0 && P.state !== 'atk') P.chain--;
   if (P.landT > 0) P.landT--;
   P.vy = Math.min(P.vy + P_GRAV, 6);
@@ -2777,6 +2800,24 @@ function updatePlayer() {
 }
 
 // ================= Enemies: shared =================
+// c = charge 0..1: bigger, faster, harder, more stagger and burn. Full charge unlocks TWIN FLAME and INFERNO.
+function castFire(c) {
+  const full = c >= 1, s = Math.round(6 + 6 * c), n = full && skLv('twin') ? 3 : 1;
+  const dmg = Math.round(34 * (1 + 1.5 * c) * (1 + .25 * skLv('ember')) * dmgMult() * (n > 1 ? .7 : 1));
+  for (let i = 0; i < n; i++) projs.push({ kind: 'fireball', mine: true, c, full, x: P.x + P.w / 2 - s / 2 + P.face * 8, y: P.y + 6 - s / 2, w: s, h: s,
+    vx: P.face * (3.4 + c), vy: (i - (n - 1) / 2) * .7, life: 100, dmg, poise: Math.round(20 * (1 + 2 * c)), burn: Math.round(40 * (1 + c)) });
+  sfx(c > .5 ? 'boom' : 'fire'); spark(P.x + P.w / 2 + P.face * 8, P.y + 6, '#f08030', 6 + 10 * c);
+  if (c > .3) shake = Math.max(shake, 2.5 * c);
+}
+// INFERNO: a full charge bursts where it lands and scorches every foe close by
+function inferno(pr, skip) {
+  const lv = skLv('blast'); if (!pr.full || !lv) return;
+  const cx = pr.x + pr.w / 2, cy = pr.y + pr.h / 2, r = 18 + 12 * lv;
+  for (const e of enemies) if (e !== skip && !e.dead && e.st !== 'sleep' && Math.hypot(e.x + e.w / 2 - cx, e.y + e.h / 2 - cy) < r + e.w / 2)
+    hitEnemy(e, false, { dmg: Math.round(pr.dmg * .5), x: cx, vx: pr.vx, poise: 15, burn: 60 });
+  for (let i = 0; i < 24; i++) { const a = i / 24 * 6.28; particles.push({ x: cx, y: cy, vx: Math.cos(a) * r / 12, vy: Math.sin(a) * r / 12, life: 12, c: i % 2 ? '#f8d048' : '#f08030', g: 0, s: 1 }); }
+  shake = Math.max(shake, 4); sfx('boom');
+}
 function hitEnemy(e, heavy, spell) {
   const w = WPN(), pcx = spell ? spell.x : P.x + P.w / 2, ecx = e.x + e.w / 2;
   const frontal = (pcx - ecx) * e.face > 0;
@@ -2798,11 +2839,11 @@ function hitEnemy(e, heavy, spell) {
   ftext(ecx, e.y - 4, crit ? 'CRITICAL ' + dmg : dmg, crit ? '#f08030' : '#f4ead6');
   sfx('hit'); hitstop = crit ? 12 : heavy ? 8 : 5; shake = Math.max(shake, crit ? 5 : 2);
   spark(ecx, e.y + e.h / 2, '#fff2c0', crit ? 12 : 5);
-  e.poise -= (spell ? 20 : heavy ? w.poise[1] : w.poise[0]) * mr.p; e.poiseT = 100;
+  e.poise -= (spell ? spell.poise || 20 : heavy ? w.poise[1] : w.poise[0]) * mr.p; e.poiseT = 100;
   if (e.poise <= 0 && e.st !== 'stag' && e.hp > 0) { e.st = 'stag'; e.t2 = e.ch === 'J' ? 50 : 36; e.atk = null; e.poise = e.pmax || e.d.poise; }
   if (e.d.light && e.st !== 'act') e.vx = (spell ? Math.sign(spell.vx) : P.face) * 1.6;
   if (e.hp <= 0) { killEnemy(e); return; }
-  const f = spell ? { burn: 40 } : heroFx();
+  const f = spell ? { burn: spell.burn || 40 } : heroFx();
   for (const k in f) addFx(e, k, f[k] * (heavy ? 1.6 : 1));
 }
 function killEnemy(e) {
@@ -3292,10 +3333,10 @@ function updateWorld() {
   for (const pr of projs) {
     pr.x += pr.vx; pr.y += pr.vy; pr.life--;
     if (pr.mine) {
-      if (pr.kind === 'fireball' && frameN % 2 === 0) particles.push({ x: pr.x + 3 - Math.sign(pr.vx) * 3, y: pr.y + rnd(1, 5), vx: -pr.vx * .1, vy: -rnd(.1, .5), life: 14, c: Math.random() < .5 ? '#f08030' : '#f8d048', g: 0, s: 1 });
+      if (pr.kind === 'fireball' && frameN % 2 === 0) particles.push({ x: pr.x + pr.w / 2 - Math.sign(pr.vx) * pr.w / 2, y: pr.y + rnd(1, pr.h - 1), vx: -pr.vx * .1, vy: -rnd(.1, .5), life: 14, c: Math.random() < .5 ? '#f08030' : '#f8d048', g: 0, s: 1 });
       const tgt = enemies.find(e => !e.dead && e.st !== 'sleep' && overlap(pr, e));
-      if (tgt) hitEnemy(tgt, false, { dmg: pr.dmg, x: pr.x + 3 - pr.vx * 4, vx: pr.vx });
-      if (tgt || rectSolid(pr.x, pr.y, pr.w, pr.h) || pr.life <= 0) { pr.dead = true; puff(pr.x + 3, pr.y + 3, '#f08030', 10); if (!tgt) sfx('boom'); }
+      if (tgt) hitEnemy(tgt, false, { dmg: pr.dmg, x: pr.x + pr.w / 2 - pr.vx * 4, vx: pr.vx, poise: pr.poise, burn: pr.burn });
+      if (tgt || rectSolid(pr.x, pr.y, pr.w, pr.h) || pr.life <= 0) { pr.dead = true; puff(pr.x + pr.w / 2, pr.y + pr.h / 2, '#f08030', 10 + (pr.c || 0) * 14); if (pr.kind === 'fireball') inferno(pr, tgt); if (!tgt) sfx('boom'); }
       continue;
     }
     if ((pr.kind === 'arrow' || pr.kind === 'web') && rectSolid(pr.x, pr.y, pr.w, pr.h)) { pr.dead = true; spark(pr.x, pr.y, '#a89878', 3); }
@@ -3431,7 +3472,7 @@ function openBonfire(title) {
   if (typeof title === 'string') fireTitle = title;
   menu = { kind: 'bonfire', title: fireTitle, sel: 0, items: [
     { label: 'LEVEL UP', act: openLevelUp }, { label: 'INVENTORY', act: () => openBag(openBonfire) }, { label: 'STATS', act: () => openStats(openBonfire) },
-    { label: 'COOK', act: openCook }, { label: 'REPAIR', repair: true, act: repairAll }, { label: 'LEAVE', act: closeMenu }], back: closeMenu };
+    { label: 'MAGIC', act: openMagic }, { label: 'COOK', act: openCook }, { label: 'REPAIR', repair: true, act: repairAll }, { label: 'LEAVE', act: closeMenu }], back: closeMenu };
   state = 'menu';
 }
 function closeMenu() { menu = null; state = 'play'; clearLatches(); for (const o of [keys, touch, mouse]) for (const k in o) o[k] = false; }
@@ -3442,6 +3483,19 @@ function buy(s) {
   const c = lvlCost();
   if (CH.xp < c) { sfx('err'); menu.msg = 'NOT ENOUGH XP'; menu.msgT = 90; return; }
   CH.xp -= c; CH[s]++; CH.lvl++; P.hp = maxHP(); P.stam = maxST(); sfx('levelup'); menu.msg = 'LEVEL ' + CH.lvl + '!'; menu.msgT = 90; save();
+}
+function openMagic() {
+  menu = { kind: 'magic', title: 'MAGIC', sel: menu && menu.kind === 'magic' ? menu.sel : 0, items: Object.keys(SKILLS).map(k => ({ skill: k, label: SKILLS[k].name, act: () => learn(k) }))
+    .concat([{ label: 'BACK', act: openBonfire }]), back: openBonfire };
+}
+// what the next rank of a skill costs, or why it can not be bought
+function skillCost(k) { const d = SKILLS[k], lv = skLv(k); return lv >= d.max ? null : d.cost[lv]; }
+function learn(k) {
+  const d = SKILLS[k], c = skillCost(k);
+  if (k !== 'fire' && !hasFire()) { sfx('err'); menu.msg = 'LEARN FIREBALL FIRST'; menu.msgT = 90; return; }
+  if (c == null) { sfx('err'); menu.msg = d.name + ' IS MASTERED'; menu.msgT = 90; return; }
+  if (CH.xp < c) { sfx('err'); menu.msg = 'NOT ENOUGH XP'; menu.msgT = 90; return; }
+  CH.xp -= c; CH.sk[k] = skLv(k) + 1; sfx('levelup'); menu.msg = k === 'fire' ? 'FIREBALL LEARNED! F OR FIRE. HOLD TO CHARGE' : d.name + ' RANK ' + CH.sk[k] + '!'; menu.msgT = 120; save();
 }
 function openCook() {
   menu = { kind: 'cook', title: 'COOK', sel: 0, items: Object.keys(MEALS).map(k => ({ meal: k, label: MEALS[k].name, act: () => cook(k) }))
@@ -3594,10 +3648,10 @@ function temper(sl) {
 }
 // Controls screen: shown once when a new game starts, and from the pause menu.
 const HELP_KEYS = [['MOVE', 'A D OR ARROWS'], ['JUMP', 'SPACE OR W'], ['ATTACK', 'J OR LEFT CLICK. HOLD FOR HEAVY'], ['BLOCK', 'K OR RIGHT CLICK. LATE BLOCK PARRIES'],
-  ['ROLL', 'L OR SHIFT'], ['HEAL', 'Q DRINKS A FLASK'], ['USE', 'E AT BONFIRES, CHESTS AND ALTARS'], ['FIREBALL', 'F, AFTER THE FIRST JARL'], ['DROP DOWN', 'S ON A LEDGE'],
+  ['ROLL', 'L OR SHIFT'], ['HEAL', 'Q DRINKS A FLASK'], ['USE', 'E AT BONFIRES, CHESTS AND ALTARS'], ['FIREBALL', 'F. HOLD TO CHARGE. LEARN AT BONFIRE: MAGIC'], ['DROP DOWN', 'S ON A LEDGE'],
   ['BAG / MENU', 'I / ESC.  BAG: ENTER OR RIGHT CLICK = ACTIONS'], ['SOUND / VIEW', 'M / V'], ['GAMEPAD', 'A JUMP B ROLL X ATK Y HEAL LB BLOCK RB FIRE']];
 const HELP_TOUCH = [['MOVE', 'LEFT PAD'], ['ATK', 'TAP. HOLD FOR HEAVY'], ['BLOCK', 'HOLD. LATE BLOCK PARRIES'], ['ROLL', 'DODGE THROUGH HITS'], ['HEAL', 'DRINK A FLASK'],
-  ['JUMP', 'TAP. HOLD TO JUMP HIGHER'], ['USE', 'BONFIRES, CHESTS, ALTARS. DROP FROM LEDGES'], ['FIRE', 'FIREBALL, AFTER THE FIRST JARL'], ['BAG', 'TOP BUTTON. TAP AN ITEM TWICE FOR ACTIONS'], ['ALTAR', 'EVERY 3RD FLOOR. CRAFT GEAR FROM DUST'], ['MENU', 'TOP BUTTON. PAUSE, STATS, QUIT']];
+  ['JUMP', 'TAP. HOLD TO JUMP HIGHER'], ['USE', 'BONFIRES, CHESTS, ALTARS. DROP FROM LEDGES'], ['FIRE', 'HOLD TO CHARGE. LEARN AT BONFIRE: MAGIC'], ['BAG', 'TOP BUTTON. TAP AN ITEM TWICE FOR ACTIONS'], ['ALTAR', 'EVERY 3RD FLOOR. CRAFT GEAR FROM DUST'], ['MENU', 'TOP BUTTON. PAUSE, STATS, QUIT']];
 function openHelp(from) {
   const back = from || closeMenu;
   menu = { kind: 'help', title: 'CONTROLS', sel: 0, items: [{ label: 'GOT IT', act: back }], back };
@@ -3811,7 +3865,7 @@ function heroPose() {
   if (P.blocking) { o.block = true; if (CH.eq.s === 'none') { o.A = -100; o.reach = 1; } }
   if (P.state === 'roll') o.legs = 'tuck';
   if (P.state === 'stag' || P.state === 'gbreak') { o.A = 50; o.lean = -1; if (P.t % 6 < 3) o.tint = 'w'; }
-  if (P.state === 'cast') { o.A = -10; o.reach = 2; o.lean = 1; }
+  if (P.state === 'cast' || P.state === 'charge') { o.A = -10; o.reach = 2; o.lean = 1; }
   if (P.state === 'heal') { o.A = 60; }
   if (P.state === 'atk' && P.atkPhase === 'wind' && P.heavy && P.atkT < 8 && P.atkT % 4 < 2) o.tint = 'w';
   return o;
@@ -3850,6 +3904,11 @@ function drawPlayer() {
       ctx.fillStyle = cols[0]; ctx.fillRect(Math.round(ccx + P.face * Math.cos(a) * r), Math.round(ccy + Math.sin(a) * r), 1, 1);
       ctx.fillStyle = cols[1]; ctx.fillRect(Math.round(ccx + P.face * Math.cos(a) * (r - 2)), Math.round(ccy + Math.sin(a) * (r - 2)), 1, 1);
     }
+  }
+  if (P.state === 'charge') { // the growing flame in the off hand
+    const c = Math.min(1, P.t / chargeFull()), s = 2 + 5 * c, hx = cx + P.face * 7 - camX, hy = P.y + 5;
+    ctx.fillStyle = '#c8402a'; ctx.fillRect(px(hx - s / 2), px(hy - s / 2), px(s), px(s));
+    ctx.fillStyle = c >= 1 && frameN % 4 < 2 ? '#fff2c0' : '#f8d048'; ctx.fillRect(px(hx - s / 4), px(hy - s / 4), px(s / 2), px(s / 2));
   }
   if (P.state === 'cast' && P.t > 14) { ctx.fillStyle = frameN % 4 < 2 ? '#f8d048' : '#f08030'; ctx.fillRect(Math.round(cx + P.face * 7 - camX), Math.round(P.y + 4), 3, 3); }
   if (P.state === 'heal') blit(SPR.potion, Math.round(cx - 4 - camX), Math.round(P.y - 11));
@@ -3989,6 +4048,7 @@ function drawWorld() {
   }
   drawPlayer();
   lights.push({ x: P.x + P.w / 2 - camX, y: P.y + 6, r: 50 });
+  if (P.state === 'charge') lights.push({ x: P.x + P.w / 2 + P.face * 7 - camX, y: P.y + 5, r: 16 + 26 * Math.min(1, P.t / chargeFull()), c: ORANGE });
   for (const pr of projs) {
     if (pr.kind === 'arrow') {
       const l = Math.hypot(pr.vx, pr.vy) || 1, ux = pr.vx / l, uy = pr.vy / l, x = pr.x + 2 - camX, y = pr.y + 2;
@@ -3996,11 +4056,11 @@ function drawWorld() {
       ctx.fillStyle = '#8a96a8'; ctx.fillRect(Math.round(x + ux), Math.round(y + uy), 1, 1);
       ctx.fillStyle = '#c8402a'; ctx.fillRect(Math.round(x - ux * 6), Math.round(y - uy * 6), 1, 1);
     } else if (pr.kind === 'fireball') {
-      const x = Math.round(pr.x - camX), y = Math.round(pr.y);
-      ctx.fillStyle = '#c8402a'; ctx.fillRect(x, y + 1, 6, 4); ctx.fillRect(x + 1, y, 4, 6);
-      ctx.fillStyle = '#f08030'; ctx.fillRect(x + 1, y + 1, 4, 4);
-      ctx.fillStyle = '#f8d048'; ctx.fillRect(x + 2, y + 2, 2, 2);
-      lights.push({ x: x + 3, y: y + 3, r: 34, c: ORANGE });
+      const s = pr.w, q = s / 6, x = Math.round(pr.x - camX), y = Math.round(pr.y), fl = pr.full && frameN % 4 < 2;
+      ctx.fillStyle = '#c8402a'; ctx.fillRect(x, px(y + q), s, px(s - 2 * q)); ctx.fillRect(px(x + q), y, px(s - 2 * q), s);
+      ctx.fillStyle = '#f08030'; ctx.fillRect(px(x + q), px(y + q), px(s - 2 * q), px(s - 2 * q));
+      ctx.fillStyle = fl ? '#fff2c0' : '#f8d048'; ctx.fillRect(px(x + 2 * q), px(y + 2 * q), px(s - 4 * q), px(s - 4 * q));
+      lights.push({ x: x + s / 2, y: y + s / 2, r: 34 + 20 * (pr.c || 0), c: ORANGE });
     } else if (pr.kind === 'web') {
       ctx.fillStyle = '#e8e8e8'; const x = Math.round(pr.x - camX), y = Math.round(pr.y);
       ctx.fillRect(x + 2, y, 2, 6); ctx.fillRect(x, y + 2, 6, 2); ctx.fillRect(x + 1, y + 1, 1, 1); ctx.fillRect(x + 4, y + 4, 1, 1);
@@ -4157,6 +4217,9 @@ function drawMenu() {
   if (m.kind === 'help') return drawHelp(m);
   if (m.kind === 'level') {
     drawTextS('LV ' + CH.lvl + '   XP ' + CH.xp + '   COST ' + lvlCost(), W / 2, 26, CH.xp >= lvlCost() ? '#7fe08a' : '#d8c8b8', 1, 'center');
+  } else if (m.kind === 'magic') {
+    const it = m.items[m.sel];
+    drawTextS('XP ' + CH.xp + (it && it.skill ? '   ' + SKILLS[it.skill].info : ''), W / 2, 26, '#d8c8b8', 1, 'center');
   } else if (m.kind === 'cook') {
     let bx = W / 2 - 92;
     for (const p of PARTS) { drawPart(p, bx, 22); bx = drawText(p.toUpperCase() + ' ' + (CH.bag[p] || 0), bx + 10, 24, '#d8c8b8') + 10; }
@@ -4165,9 +4228,9 @@ function drawMenu() {
   } else if (m.kind === 'altar') {
     drawTextS('RUNE DUST ' + CH.dust + '   SALVAGE GEAR IN THE BAG FOR MORE', W / 2, 26, '#c88ae8', 1, 'center');
   }
-  const al = m.kind === 'altar', bf = m.kind === 'bonfire';
+  const al = m.kind === 'altar', bf = m.kind === 'bonfire' || m.kind === 'magic';
   m.items.forEach((it, i) => {
-    const ck = m.kind === 'cook', y = al ? 36 + i * 15 : 38 + i * (m.kind === 'level' ? 20 : bf ? 18 : 22), sel = i === m.sel, h = al ? 13 : ck && it.meal ? 20 : bf ? 15 : 16;
+    const ck = m.kind === 'cook', y = al ? 36 + i * 15 : 38 + i * (m.kind === 'level' ? 20 : bf ? 16 : 22), sel = i === m.sel, h = al ? 13 : ck && it.meal ? 20 : bf ? 14 : 16;
     let label = it.label;
     if (it.stat) {
       const k = it.stat, g = gearBonus(k);
@@ -4175,6 +4238,11 @@ function drawMenu() {
     }
     if (it.meal) label = (CH.meal === it.meal ? 'EATEN: ' : '') + it.label + '   ' + needText(it.meal);
     let col = it.meal && !canCook(it.meal) ? '#6a5a5a' : null;
+    if (it.skill) {
+      const k = it.skill, d = SKILLS[k], lv = skLv(k), c = skillCost(k), lock = k !== 'fire' && !hasFire();
+      label = d.name + '   ' + lv + '/' + d.max + '   ' + (c == null ? 'MASTERED' : lock ? 'NEEDS FIREBALL' : c + ' XP');
+      col = c == null ? '#8fd6c3' : lock || CH.xp < c ? '#6a5a5a' : '#f2a860';
+    }
     if (it.repair) {
       const c = repairCost(), p = repairPay(c);
       label = !c ? 'REPAIR   ALL GEAR IS SOUND' : 'REPAIR GEAR   ' + (p.d ? p.d + ' DUST' : '') + (p.d && p.xp ? ' + ' : '') + (p.xp ? p.xp + ' XP' : '');
