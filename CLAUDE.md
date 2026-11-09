@@ -17,7 +17,7 @@ Souls-like pixel dungeon side scroller. Plain HTML5 canvas + WebAudio, no build 
 Core setup, Bitmap font (3x5), Sprites (text grids in `GRIDS`, palette `PAL`), Levels (`LEVELS`, `buildLevel`),
 physics (`moveBody`, one-way platforms `=`), Background prerender (`paintBg`: `bgWall` back wall, `bg` full 2D backdrop),
 3D view (`V3`: WebGL draws the level as blocks on canvas `#g3` under the see-through 2D canvas), Audio (songs, `SFX`, generative music `GEN`/`genBar`),
-Extra sprites, Hero sprites (`HERO` part grids, `paintHero` builds the hero each frame from head, armor torso, pose legs, swinging weapon and shield), Classes/gear (`CLASSES`, `ITEMS`, `CH` = saved character), Input, Game state, Player (`updatePlayer`, `resolveHit`),
+Extra sprites, Hero sprites (`HERO` part grids, `paintHero` builds the hero each frame from head, armor torso, pose legs, swinging weapon and shield), Classes/gear (`CLASSES`, `ITEMS` with `rar` rarity and `b` stat bonus, `stat(k)`, `CH` = saved character), Input, Game state, Player (`updatePlayer`, `resolveHit`),
 Enemies shared (`hitEnemy`, `startAtk`/`runAtk` attack phases wind/act/rec), Enemy mechanics (one `AI.x` + attack defs per enemy),
 World (`updateWorld`), Menus and UI flow, Rendering, Main loop, test hook `window.__dd`.
 
@@ -29,8 +29,8 @@ World (`updateWorld`), Menus and UI flow, Rendering, Main loop, test hook `windo
 - Level ops: `[char, col, row, count, height]`. Chars: `#` wall, `=` ledge, `T` torch, `c` XP shard, `p` potion, `G` chest, mob letters r b t a s e w h k J.
   Bonfire (col 4) and exit door are added automatically.
 - Jump reach: about 42 to 46 px. Keep ledges 32 px (2 tiles) apart vertically.
-- Save key in localStorage: `dd2`. Bump it if the save shape changes.
-- Text in the game uses the bitmap font: uppercase letters, digits and `! : . + - ' , / ?` only.
+- Save key in localStorage: `dd2`. New save fields get defaults in `loadSave` so old saves keep working; bump the key only if that is not possible.
+- Text in the game uses the bitmap font: uppercase letters, digits and `! : . + - ' , / ? %` only.
 - Never use em dashes in code comments, UI text or docs.
 - Mobile matters: every feature needs a touch path (on-screen buttons or tapping `uiRects`).
 

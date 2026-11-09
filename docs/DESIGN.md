@@ -45,7 +45,9 @@
 
 ## Character
 - Classes: Knight (sword, wooden shield, chain), Berserker (greataxe, no shield, hide), Rogue (twin daggers, buckler, leather).
-- HP = 30 + VIT x 7. Stamina = 40 + END x 6. Damage x (1 + (STR - 10) x 0.07).
+- Stats: VIT, END, STR, DEX. Each stat = level-up points + bonus from worn gear (`stat(k)`).
+- HP = 30 + VIT x 7. Stamina = 40 + END x 6. Damage x (1 + (STR - 10) x 0.07). Crit chance = 3% + (DEX - 10) x 2%, capped at 40%, crit deals 1.5x.
+- Class DEX: Knight 10, Berserker 8, Rogue 13.
 - Level cost = 60 + 25 L + 3 L squared XP.
 - Chest gear: Bat-Wing Cloak (area 2), Thrall Blade (3), Iron Kite Shield (5), Ember Daggers (6), Forge Axe (7), Draugr Mail (8). Boss: Sword of the Draugr.
 
@@ -66,6 +68,15 @@
 - Areas: generated live. Seeded chord walk per area (key, mode, tempo, filter), a motif that mutates each phrase, drone, pad, bells, drips, echo.
 - Boss: "The Jarl Rises" chiptune. Win: "Dungeon Complete" sting.
 - Footsteps vary with armor weight.
+
+## Inventory and loot
+- Five slots: weapon, shield, armor, ring, amulet. Shield, ring and amulet can be left empty.
+- Inventory (I key, BAG button, or pause and bonfire menus): worn gear on top, bag grid below, cooking parts at the bottom. Pick an item to wear it, pick a worn ring, amulet or shield to take it off. Gear can be changed anywhere.
+- Stats screen (pause and bonfire menus): base stat, green gear bonus, total, then derived numbers.
+- Rarity: COMMON (beige), RARE (blue), EPIC (purple), LEGENDARY (gold). Drops glow with a beam in their color, bigger for better rarity.
+- Drops: chance = 10% + enemy XP / 600 (elites +50%). Rarity roll: 2% legendary, 10% epic, 28% rare, rest common, shifted toward better by 1 point per floor (cap 25) and 30 for elites. Only gear you do not own yet drops. Summons, split slimes and the Jarl do not roll.
+- Loot pool: Bone Sword, Iron Ring, Bone Ring, Wolf Tooth (common); Bearded Axe, Round Shield, Wolf Pelt, Serpent Ring, Raven Charm (rare); Rune Blade, Frostfang, Bone Targe, Raven Leather, Ember Ring, Rune Stone (epic); Skullsplitter, Rune Mail, Allfather Ring, Thor's Hammer (legendary).
+- Chest gear is rare or epic and never drops from monsters.
 
 ## Not built yet
 NPCs or shops, settings menu.

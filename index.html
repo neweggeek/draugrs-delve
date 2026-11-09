@@ -23,6 +23,8 @@ body.is-touch:not(.portrait) .touch,body.is-touch:not(.portrait) #bUse{opacity:.
 .btn.on,#pad .half.on{background:rgba(242,193,78,.3)}
 #mute{position:fixed;z-index:3;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));width:44px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 #view{position:fixed;z-index:3;top:calc(10px + env(safe-area-inset-top));right:calc(62px + env(safe-area-inset-right));width:44px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;font:700 13px ui-monospace,monospace;padding:0;cursor:pointer}
+#bag{position:fixed;z-index:3;display:none;top:calc(10px + env(safe-area-inset-top));right:calc(114px + env(safe-area-inset-right));width:52px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;font:700 13px ui-monospace,monospace;padding:0;cursor:pointer}
+body.in-play #bag{display:block}
 #rot{position:fixed;left:0;right:0;text-align:center;color:#b8a596;font:12px ui-monospace,monospace;display:none}
 body.is-touch.portrait #rot{display:block}
 </style>
@@ -45,6 +47,7 @@ body.is-touch.portrait #rot{display:block}
   <button class="btn" id="bJump" aria-label="Jump">JUMP</button>
 </div>
 <button class="btn" id="bUse" aria-label="Use">USE</button>
+<button id="bag" aria-label="Open inventory">BAG</button>
 <button id="view" aria-label="Switch between 3D and 2D view">2D</button>
 <button id="mute" aria-label="Toggle sound"><svg id="mIcon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" stroke="none"/><path id="mWave" d="M16 8c1.5 1.5 1.5 6.5 0 8M19 5c3 3 3 11 0 14"/><path id="mX" d="M16 9l6 6M22 9l-6 6" style="display:none"/></svg></button>
 <script>
@@ -66,7 +69,8 @@ const FONT = {
   Z:'111001010100111','0':'111101101101111','1':'010110010010111','2':'111001111100111','3':'111001111001111',
   '4':'101101111001001','5':'111100111001111','6':'111100111101111','7':'111001001001001','8':'111101111101111',
   '9':'111101111001111','!':'010010010000010',':':'000010000010000','.':'000000000000010','+':'000010111010000',
-  '-':'000000111000000',"'":'010010000000000',',':'000000000010100','/':'001001010100100','?':'110001010000010'
+  '-':'000000111000000',"'":'010010000000000',',':'000000000010100','/':'001001010100100','?':'110001010000010',
+  '%':'101001010100101'
 };
 function textW(s, sc = 1) { return s.length * 4 * sc - sc; }
 function drawText(s, x, y, col, sc = 1, align = 'left') {
@@ -1173,12 +1177,59 @@ kBBBBk
 ksBBsk
 .ksBk.
 .kssk.
-..kk..`
+..kk..`,
+    round: `
+..kk..
+.knnk.
+knrrnk
+knrysk
+knrrnk
+.knnk.
+..kk..`,
+    targe: `
+.kkkkk.
+kwwwwwk
+kwkwkwk
+kwwwwwk
+kgwkwgk
+.kgwgk.
+..kkk..`
   }
 };
-const ARMOR_COL = { leather: ['N', 'n'], cloak: ['M', 'm'], hide: ['n', 'P'], chain: ['S', 's'], mail: ['T', 't'] };
+// ring and amulet icons: X metal light, x metal dark, J stone, j stone shine
+const TRINKET = {
+  r: `
+....kk....
+...kJJk...
+..kkjJkk..
+.kXxkkxXk.
+.kX....Xk.
+.kX....Xk.
+.kxX..Xxk.
+..kxXXxk..
+...kkkk...`,
+  n: `
+.kk....kk.
+.kXk..kXk.
+..kXkkXk..
+...kXXk...
+...kxxk...
+..kJJJJk..
+.kJjJJJJk.
+.kJJJJJxk.
+..kJJJJk..
+...kkkk...`
+};
+const TRINKET_COL = {
+  ironring: { X: 's', x: 'S', J: 'm', j: 'w' }, bonering: { X: 'w', x: 'g', J: 'r', j: 'f' }, serpentring: { X: 't', x: 'T', J: 'y', j: 'w' },
+  emberring: { X: 'y', x: 'n', J: 'o', j: 'y' }, allfather: { X: 'y', x: 'o', J: 'e', j: 'w' },
+  wolftooth: { X: 'n', x: 'N', J: 'w', j: 'g' }, ravencharm: { X: 'n', x: 'N', J: 'M', j: 'p' }, runestone: { X: 'n', x: 'N', J: 'S', j: 'b' },
+  thorshammer: { X: 'y', x: 'o', J: 's', j: 'w' }
+};
+const ARMOR_COL = { leather: ['N', 'n'], cloak: ['M', 'm'], hide: ['n', 'P'], chain: ['S', 's'], mail: ['T', 't'], wolfpelt: ['m', 'g'], ravenleather: ['M', 'p'], runemail: ['B', 'b'] };
 const CLASS_COL = { knight: 'B', berserker: 'r', rogue: 'p' };
-const WPN_TINT = { thrallblade: { w: 'g', S: 'm', y: 'M' }, draugr: { w: 'e', S: 't', y: 'T' }, forgeaxe: { s: 'o', w: 'y', S: 'r' }, emberdaggers: { w: 'y', s: 'o' } };
+const WPN_TINT = { thrallblade: { w: 'g', S: 'm', y: 'M' }, draugr: { w: 'e', S: 't', y: 'T' }, forgeaxe: { s: 'o', w: 'y', S: 'r' }, emberdaggers: { w: 'y', s: 'o' },
+  bonesword: { S: 'g', y: 'w' }, runeblade: { w: 'b', S: 'B', y: 'e' }, beardaxe: { s: 'g', S: 'm' }, skullsplitter: { s: 'r', w: 'o', S: 'N' }, frostfang: { w: 'e', s: 'b' } };
 const HSPR = {}; // lazy cache of built part sprites
 function hspr(key, src) { return HSPR[key] || (HSPR[key] = mkSprite(src)); }
 const HB = document.createElement('canvas'); HB.width = 48; HB.height = 40;
@@ -1219,47 +1270,84 @@ function blitHero(x, by, face, spin = 0, sc = 1) {
   if (spin) { ctx.translate(0, -7 * sc); ctx.rotate(spin); ctx.translate(0, 7 * sc); }
   ctx.scale(face < 0 ? -sc : sc, sc); ctx.drawImage(HB, -HOX, -HOY); ctx.restore();
 }
-// small picture of an item, left edge x, vertically centered on y (equip menu)
-function gearIcon(id, x, y) {
-  const it = ITEMS[id]; let sp;
-  if (it.slot === 'w') sp = hspr('w_' + id, recolor(HERO.wpn[it.type].g, WPN_TINT[id] || {}));
-  else if (it.slot === 's') { if (id === 'none') return; sp = hspr('s_' + id, HERO.shd[id]); }
-  else { const ac = ARMOR_COL[id]; sp = hspr('t_' + id + CH.cls, recolor(HERO.torso, { A: ac[0], a: ac[1], C: CLASS_COL[CH.cls] })); }
-  ctx.drawImage(sp.c[0], Math.round(x + 8 - sp.w / 2), Math.round(y - sp.h / 2));
+// small picture of an item (null for empty slots)
+function itemSprite(id) {
+  const it = ITEMS[id];
+  if (EMPTY[it.slot] === id) return null;
+  if (it.slot === 'w') return hspr('w_' + id, recolor(HERO.wpn[it.type].g, WPN_TINT[id] || {}));
+  if (it.slot === 's') return hspr('s_' + id, HERO.shd[id]);
+  if (it.slot === 'r' || it.slot === 'n') return hspr('j_' + id, recolor(TRINKET[it.slot], TRINKET_COL[id]));
+  const cls = CH ? CH.cls : 'knight', ac = ARMOR_COL[id];
+  return hspr('t_' + id + cls, recolor(HERO.torso, { A: ac[0], a: ac[1], C: CLASS_COL[cls] }));
 }
+// draw an item icon centered on (cx, cy)
+function gearIconC(id, cx, cy) { const sp = itemSprite(id); if (sp) ctx.drawImage(sp.c[0], Math.round(cx - sp.w / 2), Math.round(cy - sp.h / 2)); }
 // a standing hero with default class gear (menus, title)
 function heroIdle(cls, eq) { const e = eq || CLASSES[cls].eq; return paintHero({ cls, w: e.w, s: e.s, a: e.a, legs: 'idle', A: IDLE_A[ITEMS[e.w].type] }); }
 const IDLE_A = { sword: -50, axe: -140, dagger: 35 };
 
 // ================= Classes, gear, character =================
 const CLASSES = {
-  knight:    { name: 'KNIGHT', vit: 10, end: 10, str: 10, eq: { w: 'sword', s: 'wood', a: 'chain' }, desc: ['SWORD AND SHIELD', 'BEST BLOCK AND PARRY', 'BALANCED'] },
-  berserker: { name: 'BERSERKER', vit: 12, end: 9, str: 13, eq: { w: 'axe', s: 'none', a: 'hide' }, desc: ['TWO-HANDED AXE', 'HUGE SLOW HITS', 'WEAK BLOCK'] },
-  rogue:     { name: 'ROGUE', vit: 8, end: 13, str: 9, eq: { w: 'daggers', s: 'buckler', a: 'leather' }, desc: ['TWIN DAGGERS', 'FAST, CHEAP ROLL', 'WIDE PARRY WINDOW'] }
+  knight:    { name: 'KNIGHT', vit: 10, end: 10, str: 10, dex: 10, eq: { w: 'sword', s: 'wood', a: 'chain' }, desc: ['SWORD AND SHIELD', 'BEST BLOCK AND PARRY', 'BALANCED'] },
+  berserker: { name: 'BERSERKER', vit: 12, end: 9, str: 13, dex: 8, eq: { w: 'axe', s: 'none', a: 'hide' }, desc: ['TWO-HANDED AXE', 'HUGE SLOW HITS', 'WEAK BLOCK'] },
+  rogue:     { name: 'ROGUE', vit: 8, end: 13, str: 9, dex: 13, eq: { w: 'daggers', s: 'buckler', a: 'leather' }, desc: ['TWIN DAGGERS', 'FAST, CHEAP ROLL', 'WIDE PARRY WINDOW'] }
 };
 const CLASS_KEYS = ['knight', 'berserker', 'rogue'];
 // weapons: l/h = light/heavy damage, lc/hc = stamina cost, tw/tr = wind-up/recovery frames [light, heavy], ta = active frames
+// every item: rar = rarity (0 common .. 3 legendary), b = stat bonus while worn, loot = can drop from monsters
+const SW = { lc: 16, hc: 28, reach: 18, poise: [10, 26], tw: [8, 20], ta: 6, tr: [12, 18] };
+const AX = { lc: 22, hc: 36, reach: 21, poise: [18, 46], tw: [12, 26], ta: 7, tr: [16, 22] };
+const DG = { lc: 9, hc: 19, reach: 14, poise: [5, 15], tw: [4, 12], ta: 4, tr: [7, 14] };
 const ITEMS = {
-  sword:        { slot: 'w', type: 'sword', name: 'LONGSWORD', l: 14, h: 27, lc: 16, hc: 28, reach: 18, poise: [10, 26], tw: [8, 20], ta: 6, tr: [12, 18] },
-  thrallblade:  { slot: 'w', type: 'sword', name: 'THRALL BLADE', l: 18, h: 33, lc: 17, hc: 29, reach: 19, poise: [12, 30], tw: [8, 20], ta: 6, tr: [12, 18] },
-  draugr:       { slot: 'w', type: 'sword', name: 'SWORD OF THE DRAUGR', l: 25, h: 44, lc: 15, hc: 26, reach: 21, poise: [14, 34], tw: [7, 18], ta: 6, tr: [11, 16] },
-  axe:          { slot: 'w', type: 'axe', name: 'GREATAXE', l: 23, h: 42, lc: 22, hc: 36, reach: 21, poise: [18, 46], tw: [12, 26], ta: 7, tr: [16, 22] },
-  forgeaxe:     { slot: 'w', type: 'axe', name: 'FORGE AXE', l: 29, h: 52, lc: 23, hc: 38, reach: 22, poise: [20, 50], tw: [12, 26], ta: 7, tr: [16, 22] },
-  daggers:      { slot: 'w', type: 'dagger', name: 'TWIN DAGGERS', l: 9, h: 19, lc: 9, hc: 19, reach: 14, poise: [5, 15], tw: [4, 12], ta: 4, tr: [7, 14] },
-  emberdaggers: { slot: 'w', type: 'dagger', name: 'EMBER DAGGERS', l: 12, h: 25, lc: 9, hc: 19, reach: 14, poise: [6, 17], tw: [4, 12], ta: 4, tr: [7, 14] },
+  sword:        { slot: 'w', type: 'sword', name: 'LONGSWORD', l: 14, h: 27, ...SW },
+  bonesword:    { slot: 'w', type: 'sword', name: 'BONE SWORD', rar: 0, loot: true, l: 15, h: 28, ...SW, b: { dex: 1 } },
+  thrallblade:  { slot: 'w', type: 'sword', name: 'THRALL BLADE', rar: 1, l: 18, h: 33, ...SW, lc: 17, hc: 29, reach: 19, poise: [12, 30] },
+  runeblade:    { slot: 'w', type: 'sword', name: 'RUNE BLADE', rar: 2, loot: true, l: 21, h: 38, ...SW, reach: 19, poise: [13, 32], b: { str: 2, end: 1 } },
+  draugr:       { slot: 'w', type: 'sword', name: 'SWORD OF THE DRAUGR', rar: 3, l: 25, h: 44, lc: 15, hc: 26, reach: 21, poise: [14, 34], tw: [7, 18], ta: 6, tr: [11, 16] },
+  axe:          { slot: 'w', type: 'axe', name: 'GREATAXE', l: 23, h: 42, ...AX },
+  beardaxe:     { slot: 'w', type: 'axe', name: 'BEARDED AXE', rar: 1, loot: true, l: 26, h: 47, ...AX, b: { str: 1 } },
+  forgeaxe:     { slot: 'w', type: 'axe', name: 'FORGE AXE', rar: 2, l: 29, h: 52, ...AX, lc: 23, hc: 38, reach: 22, poise: [20, 50] },
+  skullsplitter:{ slot: 'w', type: 'axe', name: 'SKULLSPLITTER', rar: 3, loot: true, l: 33, h: 58, ...AX, reach: 22, poise: [22, 54], b: { str: 3, vit: 2 } },
+  daggers:      { slot: 'w', type: 'dagger', name: 'TWIN DAGGERS', l: 9, h: 19, ...DG },
+  emberdaggers: { slot: 'w', type: 'dagger', name: 'EMBER DAGGERS', rar: 1, l: 12, h: 25, ...DG, poise: [6, 17] },
+  frostfang:    { slot: 'w', type: 'dagger', name: 'FROSTFANG', rar: 2, loot: true, l: 13, h: 27, ...DG, lc: 8, poise: [6, 18], b: { dex: 3 } },
   none:         { slot: 's', name: 'NO SHIELD', absorb: .5, stab: 15, parry: 5 },
   buckler:      { slot: 's', name: 'BUCKLER', absorb: .72, stab: 30, parry: 11 },
   wood:         { slot: 's', name: 'WOODEN SHIELD', absorb: .92, stab: 45, parry: 7 },
-  kite:         { slot: 's', name: 'IRON KITE SHIELD', absorb: 1, stab: 62, parry: 6 },
+  round:        { slot: 's', name: 'ROUND SHIELD', rar: 1, loot: true, absorb: .95, stab: 50, parry: 8, b: { vit: 1 } },
+  kite:         { slot: 's', name: 'IRON KITE SHIELD', rar: 1, absorb: 1, stab: 62, parry: 6 },
+  targe:        { slot: 's', name: 'BONE TARGE', rar: 2, loot: true, absorb: .85, stab: 40, parry: 12, b: { dex: 2 } },
   leather:      { slot: 'a', name: 'LEATHER', def: .05, wt: 'light' },
-  cloak:        { slot: 'a', name: 'BAT-WING CLOAK', def: .09, wt: 'light' },
+  cloak:        { slot: 'a', name: 'BAT-WING CLOAK', rar: 1, def: .09, wt: 'light' },
+  ravenleather: { slot: 'a', name: 'RAVEN LEATHER', rar: 2, loot: true, def: .1, wt: 'light', b: { dex: 3 } },
   hide:         { slot: 'a', name: 'HIDE ARMOR', def: .12, wt: 'mid' },
+  wolfpelt:     { slot: 'a', name: 'WOLF PELT', rar: 1, loot: true, def: .13, wt: 'mid', b: { vit: 2 } },
   chain:        { slot: 'a', name: 'CHAIN MAIL', def: .14, wt: 'mid' },
-  mail:         { slot: 'a', name: 'DRAUGR MAIL', def: .26, wt: 'heavy' }
+  mail:         { slot: 'a', name: 'DRAUGR MAIL', rar: 2, def: .26, wt: 'heavy' },
+  runemail:     { slot: 'a', name: 'RUNE MAIL', rar: 3, loot: true, def: .3, wt: 'heavy', b: { vit: 3, end: 2 } },
+  noring:       { slot: 'r', name: 'NO RING' },
+  ironring:     { slot: 'r', name: 'IRON RING', rar: 0, loot: true, b: { str: 1 } },
+  bonering:     { slot: 'r', name: 'BONE RING', rar: 0, loot: true, b: { vit: 2 } },
+  serpentring:  { slot: 'r', name: 'SERPENT RING', rar: 1, loot: true, b: { dex: 3 } },
+  emberring:    { slot: 'r', name: 'EMBER RING', rar: 2, loot: true, b: { str: 3, end: 1 } },
+  allfather:    { slot: 'r', name: 'ALLFATHER RING', rar: 3, loot: true, b: { vit: 2, end: 2, str: 2, dex: 2 } },
+  noamulet:     { slot: 'n', name: 'NO AMULET' },
+  wolftooth:    { slot: 'n', name: 'WOLF TOOTH', rar: 0, loot: true, b: { end: 2 } },
+  ravencharm:   { slot: 'n', name: 'RAVEN CHARM', rar: 1, loot: true, b: { dex: 2, vit: 1 } },
+  runestone:    { slot: 'n', name: 'RUNE STONE', rar: 2, loot: true, b: { vit: 3, end: 2 } },
+  thorshammer:  { slot: 'n', name: "THOR'S HAMMER", rar: 3, loot: true, b: { str: 4, vit: 2 } }
 };
+for (const id in ITEMS) ITEMS[id].rar = ITEMS[id].rar || 0;
+const SLOTS = ['w', 's', 'a', 'r', 'n'], SLOT_NAME = { w: 'WEAPON', s: 'SHIELD', a: 'ARMOR', r: 'RING', n: 'AMULET' };
+const EMPTY = { s: 'none', r: 'noring', n: 'noamulet' }; // slots that can be left empty
+const RAR = [{ name: 'COMMON', c: '#d8c8b8' }, { name: 'RARE', c: '#6ec8e8' }, { name: 'EPIC', c: '#c88ae8' }, { name: 'LEGENDARY', c: '#f2c14e' }];
+const LOOT = [[], [], [], []]; for (const id in ITEMS) if (ITEMS[id].loot) LOOT[ITEMS[id].rar].push(id);
+const STATS = ['vit', 'end', 'str', 'dex'], STAT_NAME = { vit: 'VITALITY', end: 'ENDURANCE', str: 'STRENGTH', dex: 'DEXTERITY' };
 const WT = { light: { roll: 16, iA: 2, iB: 14, spd: 2.5, regen: 1.1 }, mid: { roll: 18, iA: 2, iB: 13, spd: 2.2, regen: 1 }, heavy: { roll: 22, iA: 3, iB: 12, spd: 1.7, regen: .85 } };
+function bonusLine(id) { const b = ITEMS[id].b || {}; return STATS.filter(k => b[k]).map(k => '+' + b[k] + ' ' + k.toUpperCase()).join('  '); }
 function itemLine(id) {
   const it = ITEMS[id];
+  if (it.slot === 'r' || it.slot === 'n') return bonusLine(id) || 'EMPTY';
   if (it.slot === 'w') return 'ATK ' + Math.round(it.l * dmgMult()) + ' / ' + Math.round(it.h * dmgMult()) + '  COST ' + it.lc;
   if (it.slot === 's') return 'BLOCK ' + Math.round(it.absorb * 100) + '%  STABILITY ' + it.stab;
   return 'DEF ' + Math.round(it.def * 100) + '%  ' + it.wt.toUpperCase();
@@ -1278,14 +1366,23 @@ const canCook = k => Object.entries(MEALS[k].need).every(([p, c]) => (CH.bag[p] 
 let CH = null, SAVE = null;
 function newChar(cls) {
   const c = CLASSES[cls];
-  return { cls, vit: c.vit, end: c.end, str: c.str, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({}, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null };
+  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null };
 }
 function save() { try { localStorage.setItem('dd2', JSON.stringify(CH)); SAVE = CH; } catch (e) {} }
-function loadSave() { try { const s = JSON.parse(localStorage.getItem('dd2') || 'null'); if (s && CLASSES[s.cls] && s.eq && ITEMS[s.eq.w]) { s.bag = s.bag || {}; s.meal = MEALS[s.meal] ? s.meal : null; return s; } } catch (e) {} return null; }
+// old saves (before rings, amulets and DEX) are filled in with defaults
+function loadSave() { try { const s = JSON.parse(localStorage.getItem('dd2') || 'null'); if (s && CLASSES[s.cls] && s.eq && ITEMS[s.eq.w]) {
+  s.bag = s.bag || {}; s.meal = MEALS[s.meal] ? s.meal : null;
+  if (s.dex == null) s.dex = CLASSES[s.cls].dex;
+  for (const k in EMPTY) if (!ITEMS[s.eq[k]]) s.eq[k] = EMPTY[k];
+  s.inv = s.inv.filter(id => ITEMS[id]); return s; } } catch (e) {} return null; }
 SAVE = loadSave();
-const maxHP = () => Math.round((30 + CH.vit * 7) * (CH.meal === 'roast' ? 1.3 : 1));
-const maxST = () => 40 + CH.end * 6;
-const dmgMult = () => (1 + (CH.str - 10) * 0.07) * (CH.meal === 'bread' ? 1.25 : 1);
+// stat = level-up points + bonus from worn gear
+function gearBonus(k) { let n = 0; for (const sl of SLOTS) { const it = ITEMS[CH.eq[sl]]; if (it && it.b && it.b[k]) n += it.b[k]; } return n; }
+const stat = k => (CH[k] || 0) + gearBonus(k);
+const maxHP = () => Math.round((30 + stat('vit') * 7) * (CH.meal === 'roast' ? 1.3 : 1));
+const maxST = () => 40 + stat('end') * 6;
+const dmgMult = () => (1 + (stat('str') - 10) * 0.07) * (CH.meal === 'bread' ? 1.25 : 1);
+const critChance = () => clamp(.03 + (stat('dex') - 10) * .02, 0, .4);
 const lvlCost = () => Math.round(60 + 25 * CH.lvl + 3 * CH.lvl * CH.lvl);
 const hasFire = () => !!(CH && CH.beat);
 const FIRE_COST = 30;
@@ -1301,7 +1398,7 @@ const inp = k => keys[k] || touch[k] || pad[k] || mouse[k];
 const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump',
   KeyJ: 'atk', KeyK: 'block', KeyL: 'roll', ShiftLeft: 'roll', ShiftRight: 'roll', KeyQ: 'heal', KeyF: 'fire', KeyE: 'use', KeyS: 'down', ArrowDown: 'down' };
 const UIKEY = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  Enter: 'ok', Space: 'ok', KeyJ: 'ok', KeyE: 'ok', Escape: 'back', Backspace: 'back', KeyK: 'back' };
+  Enter: 'ok', Space: 'ok', KeyJ: 'ok', KeyE: 'ok', Escape: 'back', Backspace: 'back', KeyK: 'back', KeyI: 'back' };
 addEventListener('keydown', e => {
   if (document.body.classList.contains('is-touch') && !e.repeat) { document.body.classList.remove('is-touch'); resize(); }
   if (e.code === 'KeyM' && !e.repeat) { initAudio(); setMuted(!muted); return; }
@@ -1310,6 +1407,7 @@ addEventListener('keydown', e => {
   initAudio();
   if (state !== 'play') { if (UIKEY[e.code] || e.code.startsWith('Key')) e.preventDefault(); if (!e.repeat) uiKey(UIKEY[e.code] || 'any'); return; }
   if (e.code === 'Escape' && !e.repeat) { openPause(); return; }
+  if (e.code === 'KeyI' && !e.repeat) { openBag(); return; }
   const k = KEYMAP[e.code];
   if (k) { e.preventDefault(); if (k in keys) keys[k] = true; if (!e.repeat && k in latch) latch[k] = true; }
 });
@@ -1356,6 +1454,9 @@ function bindBtn(id, k, uiAction) {
 bindBtn('bAtk', 'atk', 'ok'); bindBtn('bJump', 'jump', 'ok'); bindBtn('bBlk', 'block', 'back'); bindBtn('bRoll', 'roll', 'ok'); bindBtn('bHeal', 'heal', 'ok'); bindBtn('bUse', 'use', 'ok'); bindBtn('bFire', 'fire', 'ok');
 document.getElementById('mute').addEventListener('click', e => { e.stopPropagation(); initAudio(); setMuted(!muted); });
 document.getElementById('mute').addEventListener('pointerdown', e => e.stopPropagation());
+{ const bg = document.getElementById('bag');
+  bg.addEventListener('click', e => { e.stopPropagation(); initAudio(); if (state === 'play') openBag(); bg.blur(); });
+  bg.addEventListener('pointerdown', e => e.stopPropagation()); }
 { const vb = document.getElementById('view');
   if (!V3.ok) vb.style.display = 'none';
   vb.addEventListener('click', e => { e.stopPropagation(); V3.set(!V3.on); vb.blur(); });
@@ -1666,6 +1767,7 @@ function hitEnemy(e, heavy, spell) {
   let dmg = spell ? spell.dmg : (heavy ? w.h : w.l) * dmgMult(), crit = false;
   if (e.parried && e.st === 'stag') { dmg *= 3; crit = true; e.parried = false; e.t2 = Math.min(e.t2, 24); }
   if (e.st === 'gbrk') dmg *= 1.5;
+  if (!spell && !crit && Math.random() < critChance()) { dmg *= 1.5; crit = true; } // DEX: lucky crits
   dmg = Math.round(dmg);
   e.hp -= dmg; e.flash = 8; e.showBar = 200; e.agro = true;
   ftext(ecx, e.y - 4, crit ? 'CRITICAL ' + dmg : dmg, crit ? '#f08030' : '#f4ead6');
@@ -1682,6 +1784,7 @@ function killEnemy(e) {
   shatter(e); puff(e.x + e.w / 2, e.y + e.h / 2, e.d.puff, big ? 40 : 14, big ? 2.6 : 1.8); puff(e.x + e.w / 2, e.y + e.h / 2, '#140c10', 6);
   sfx('kill'); shake = Math.max(shake, big ? 10 : 3);
   CH.xp += e.xp; ftext(e.x + e.w / 2, e.y - 12, '+' + e.xp + ' XP', '#f2c14e');
+  const loot = rollLoot(e); if (loot) dropLoot(e.x + e.w / 2, e.y + e.h / 2, loot);
   if (e.ch === 'e' && !e.small) for (const dir of [-1, 1]) {
     const s = makeEnemy('e', 0, 0, { small: true, agro: true, cd: 50 });
     s.x = e.x + e.w / 2 - 4; s.y = e.y + e.h - 8; s.vx = dir * 1.3; s.vy = -2.2; s.face = dir; enemies.push(applyTraits(s));
@@ -1700,6 +1803,21 @@ function dropTable(e) {
   const tr = e.tr || [];
   if (tr.includes('elite')) return [p, p, p, 'flask'];
   return tr.includes('giant') ? [p, p] : [p];
+}
+// Loot: bigger monsters drop more often, deeper areas roll better rarities. Never drops gear you already have.
+function rollLoot(e) {
+  if (e.small || e.summoned || e.ch === 'J' || Math.random() > .1 + e.xp / 600 + ((e.tr || []).includes('elite') ? .5 : 0)) return null;
+  const r = Math.random() * 100 - Math.min(levelIdx, 25) - ((e.tr || []).includes('elite') ? 30 : 0);
+  const rar = r < 2 ? 3 : r < 12 ? 2 : r < 40 ? 1 : 0;
+  for (const k of [rar, rar - 1, rar - 2, rar - 3, rar + 1, rar + 2, rar + 3]) {
+    const pool = (LOOT[k] || []).filter(id => !CH.inv.includes(id) && !pickups.some(p => p.item === id));
+    if (pool.length) return pool[Math.random() * pool.length | 0];
+  }
+  return null;
+}
+function dropLoot(x, y, id) {
+  pickups.push({ kind: 'loot', item: id, x: x - 5, y: y - 5, w: 10, h: 10, vx: rnd(-.6, .6), vy: -2.4, t: 0, fall: true });
+  spark(x, y, RAR[ITEMS[id].rar].c, 8);
 }
 function aiCtx(e) {
   const dx = (P.x + P.w / 2) - (e.x + e.w / 2), dy = (P.y + P.h / 2) - (e.y + e.h / 2);
@@ -1948,8 +2066,15 @@ function updateWorld() {
   for (const pk of pickups) {
     pk.t++;
     if (pk.drop && !groundAt(pk.x + 4, pk.y + 8)) pk.y += 1.5;
-    if (overlap(pk, P)) {
-      if (pk.kind === 'part') { pk.got = true; CH.bag[pk.part] = (CH.bag[pk.part] || 0) + 1; sfx('coin'); ftext(pk.x + 4, pk.y - 4, '+1 ' + pk.part.toUpperCase(), '#f2a860'); }
+    if (pk.fall) { // loot pops out of the monster and falls to the floor
+      pk.vy = Math.min(pk.vy + .2, 3); pk.y += pk.vy;
+      if (!rectSolid(pk.x + pk.vx, pk.y, pk.w, pk.h)) pk.x += pk.vx;
+      if (pk.vy > 0 && groundAt(pk.x + 5, pk.y + pk.h)) { pk.y = Math.floor((pk.y + pk.h) / TS) * TS - pk.h; pk.fall = false; }
+      if (pk.y > MH * TS) pk.fall = false;
+    }
+    if (overlap(pk, P) && (pk.kind !== 'loot' || pk.t > 20)) {
+      if (pk.kind === 'loot') { pk.got = true; gainItem(pk.item); }
+      else if (pk.kind === 'part') { pk.got = true; CH.bag[pk.part] = (CH.bag[pk.part] || 0) + 1; sfx('coin'); ftext(pk.x + 4, pk.y - 4, '+1 ' + pk.part.toUpperCase(), '#f2a860'); }
       else if (pk.kind === 'shard') { pk.got = true; CH.xp += 8; sfx('coin'); ftext(pk.x + 4, pk.y - 4, '+8 XP', '#f2c14e'); }
       else { pk.got = true; sfx('potion');
         if (P.flasks < CH.flaskMax) { P.flasks++; ftext(pk.x + 4, pk.y - 4, '+1 FLASK', '#e8574a'); }
@@ -1994,12 +2119,16 @@ function rest() {
   sfx('rest'); save(); loadLevel(levelIdx); state = 'menu'; bannerT = 0; openBonfire();
   puff(SPAWNS.bonfire.x + 8, SPAWNS.bonfire.y + 4, '#f8d048', 14);
 }
+function gainItem(id) {
+  const it = ITEMS[id];
+  if (!CH.inv.includes(id)) CH.inv.push(id);
+  popup = { lines: [RAR[it.rar].name + ': ' + it.name, itemLine(id) + (it.b && it.slot !== 'r' && it.slot !== 'n' ? '  ' + bonusLine(id) : ''), isTouchUI() ? 'TAP BAG TO EQUIP' : 'PRESS I TO EQUIP'], col: RAR[it.rar].c, id, t: 260 };
+  sfx(it.rar >= 2 ? 'levelup' : 'potion'); spark(P.x + P.w / 2, P.y, RAR[it.rar].c, 14); save();
+}
 function openChest() {
   CH.opened[levelIdx] = true;
-  const id = SPAWNS.chest.item;
-  if (!CH.inv.includes(id)) CH.inv.push(id);
-  popup = { lines: ['FOUND: ' + ITEMS[id].name, itemLine(id), 'EQUIP IT AT A BONFIRE'], t: 260 };
-  sfx('levelup'); spark(SPAWNS.chest.x + 6, SPAWNS.chest.y, '#f8d048', 14); save();
+  gainItem(SPAWNS.chest.item);
+  spark(SPAWNS.chest.x + 6, SPAWNS.chest.y, '#f8d048', 14);
 }
 function updateParticles() {
   for (const p of particles) {
@@ -2020,14 +2149,13 @@ function updateCamera() {
 // ================= Menus and UI flow =================
 function openBonfire() {
   menu = { kind: 'bonfire', title: 'BONFIRE', sel: 0, items: [
-    { label: 'LEVEL UP', act: openLevelUp }, { label: 'EQUIPMENT', act: openEquip }, { label: 'COOK', act: openCook }, { label: 'LEAVE', act: closeMenu }], back: closeMenu };
+    { label: 'LEVEL UP', act: openLevelUp }, { label: 'INVENTORY', act: () => openBag(openBonfire) }, { label: 'STATS', act: () => openStats(openBonfire) },
+    { label: 'COOK', act: openCook }, { label: 'LEAVE', act: closeMenu }], back: closeMenu };
   state = 'menu';
 }
 function closeMenu() { menu = null; state = 'play'; clearLatches(); for (const o of [keys, touch, mouse]) for (const k in o) o[k] = false; }
 function openLevelUp() {
-  menu = { kind: 'level', title: 'LEVEL UP', sel: 0, items: [
-    { stat: 'vit', label: 'VITALITY', act: () => buy('vit') }, { stat: 'end', label: 'ENDURANCE', act: () => buy('end') },
-    { stat: 'str', label: 'STRENGTH', act: () => buy('str') }, { label: 'BACK', act: openBonfire }], back: openBonfire };
+  menu = { kind: 'level', title: 'LEVEL UP', sel: 0, items: STATS.map(k => ({ stat: k, label: STAT_NAME[k], act: () => buy(k) })).concat([{ label: 'BACK', act: openBonfire }]), back: openBonfire };
 }
 function buy(s) {
   const c = lvlCost();
@@ -2043,19 +2171,32 @@ function cook(k) {
   for (const [p, c] of Object.entries(MEALS[k].need)) CH.bag[p] -= c;
   CH.meal = k; P.hp = maxHP(); P.stam = maxST(); sfx('levelup'); menu.msg = 'ATE ' + MEALS[k].name + '. LASTS UNTIL YOU DIE.'; menu.msgT = 120; save();
 }
-function openEquip() {
-  menu = { kind: 'equip', title: 'EQUIPMENT', sel: 0, items: [
-    { slot: 'w', label: 'WEAPON', act: () => cycleGear('w') }, { slot: 's', label: 'SHIELD', act: () => cycleGear('s') },
-    { slot: 'a', label: 'ARMOR', act: () => cycleGear('a') }, { label: 'BACK', act: openBonfire }], back: openBonfire };
+// Inventory: equipped slots on top, bag grid below. Pick an item to wear it; pick a worn ring, amulet or shield to take it off.
+const BAG_COLS = 12;
+function bagList() { return CH.inv.filter(id => ITEMS[id] && EMPTY[ITEMS[id].slot] !== id).sort((a, b) => SLOTS.indexOf(ITEMS[a].slot) - SLOTS.indexOf(ITEMS[b].slot) || ITEMS[a].rar - ITEMS[b].rar); }
+function openBag(from) {
+  const back = from || closeMenu;
+  menu = { kind: 'bag', title: 'INVENTORY', sel: 0, items: [], back, list: bagList() };
+  state = 'menu';
 }
-function cycleGear(slot) {
-  const owned = CH.inv.filter(id => ITEMS[id] && ITEMS[id].slot === slot);
-  if (slot === 's' && !owned.includes('none')) owned.unshift('none');
-  if (owned.length < 2) { sfx('err'); menu.msg = 'NOTHING ELSE TO EQUIP'; menu.msgT = 90; return; }
-  CH.eq[slot] = owned[(owned.indexOf(CH.eq[slot]) + 1) % owned.length]; sfx('pick'); P.stam = Math.min(P.stam, maxST()); save();
+function equipItem(id) {
+  const it = ITEMS[id], sl = it.slot;
+  if (CH.eq[sl] === id) {
+    if (!EMPTY[sl]) { sfx('err'); menu.msg = 'ALREADY WORN'; menu.msgT = 90; return; }
+    CH.eq[sl] = EMPTY[sl]; menu.msg = 'TOOK OFF ' + it.name;
+  } else { CH.eq[sl] = id; menu.msg = 'EQUIPPED ' + it.name; }
+  menu.msgT = 90; sfx('pick');
+  if (P) { P.hp = Math.min(P.hp, maxHP()); P.stam = Math.min(P.stam, maxST()); }
+  save();
+}
+function openStats(from) {
+  const back = from || closeMenu;
+  menu = { kind: 'stats', title: 'STATS', sel: 0, items: [{ label: 'BACK', act: back }], back };
+  state = 'menu';
 }
 function openPause() {
-  menu = { kind: 'pause', title: 'PAUSED', sel: 0, items: [{ label: 'RESUME', act: closeMenu }, { label: 'QUIT TO TITLE', act: () => { save(); toTitle(); } }], back: closeMenu };
+  menu = { kind: 'pause', title: 'PAUSED', sel: 0, items: [{ label: 'RESUME', act: closeMenu }, { label: 'INVENTORY', act: () => openBag(openPause) }, { label: 'STATS', act: () => openStats(openPause) },
+    { label: 'QUIT TO TITLE', act: () => { save(); toTitle(); } }], back: closeMenu };
   state = 'menu';
 }
 function toTitle() { state = 'title'; menu = null; SAVE = loadSave(); titleSel = 0; newConfirm = false; titleArea = SAVE ? SAVE.unlocked - 1 : 0; buildLevel(LEVELS.length - 1); paintBg(); particles = []; Music.play(TITLE_SONG); }
@@ -2079,6 +2220,16 @@ function uiKey(k) {
     else if (k === 'right' || k === 'down') { classSel = (classSel + 1) % 3; sfx('pick'); }
     else if (k === 'ok') startNewChar(CLASS_KEYS[classSel]);
     else if (k === 'back') toTitle();
+  } else if (state === 'menu' && menu && menu.kind === 'bag') {
+    const n = menu.list.length;
+    if (k === 'left') menu.sel = (menu.sel + n - 1) % n;
+    else if (k === 'right') menu.sel = (menu.sel + 1) % n;
+    else if (k === 'up') menu.sel = Math.max(0, menu.sel - BAG_COLS);
+    else if (k === 'down') menu.sel = Math.min(n - 1, menu.sel + BAG_COLS);
+    else if (k === 'ok') { if (n) equipItem(menu.list[menu.sel]); return; }
+    else if (k === 'back') { menu.back(); return; }
+    else return;
+    sfx('pick');
   } else if (state === 'menu' && menu) {
     const n = menu.items.length;
     if (k === 'up' || k === 'left') { menu.sel = (menu.sel + n - 1) % n; sfx('pick'); }
@@ -2291,6 +2442,14 @@ function drawWorld() {
   for (const pk of pickups) {
     if (pk.x < camX - 16 || pk.x > camX + W + 16) continue;
     const bob = Math.round(Math.sin((pk.t + frameN) * .08) * 1.5);
+    if (pk.kind === 'loot') { // light beam in the rarity color, then the item itself
+      const it = ITEMS[pk.item], c = RAR[it.rar].c, bx = Math.round(pk.x + 5 - camX), h = 18 + it.rar * 8;
+      ctx.globalAlpha = .25 + .1 * Math.sin(frameN * .1); ctx.fillStyle = c; ctx.fillRect(bx - 1, Math.round(pk.y + 8 - h), 3, h); ctx.globalAlpha = 1;
+      gearIconC(pk.item, bx, Math.round(pk.y + 5 + (pk.fall ? 0 : bob)));
+      if (frameN % (14 - it.rar * 3) === 0) particles.push({ x: pk.x + rnd(0, 10), y: pk.y + rnd(0, 8), vx: 0, vy: -rnd(.2, .5), life: 24, c, g: 0, s: 1 });
+      lights.push({ x: bx, y: pk.y + 5, r: 20 + it.rar * 6, c: 'rgba(255,240,200,.14)' });
+      continue;
+    }
     if (pk.kind === 'part') drawPart(pk.part, Math.round(pk.x - camX), Math.round(pk.y + bob));
     else ctx.drawImage((pk.kind === 'shard' ? SPR.coin : SPR.potion).c[0], Math.round(pk.x - camX), Math.round(pk.y + bob));
   }
@@ -2406,7 +2565,8 @@ function drawHUD() {
   }
   if (popup) {
     ctx.fillStyle = 'rgba(14,9,12,.85)'; ctx.fillRect(50, 60, 220, 34); ctx.fillStyle = '#f2c14e'; ctx.fillRect(50, 60, 220, 1); ctx.fillRect(50, 93, 220, 1);
-    popup.lines.forEach((l, i) => drawTextS(l, W / 2, 65 + i * 9, i === 0 ? '#f2c14e' : '#d8c8b8', 1, 'center'));
+    popup.lines.forEach((l, i) => drawTextS(l, W / 2, 65 + i * 9, i === 0 ? popup.col || '#f2c14e' : '#d8c8b8', 1, 'center'));
+    if (popup.id) { cellBox(56, 67, 20, popup.col, 'rgba(30,20,24,.9)'); gearIconC(popup.id, 66, 77); }
   }
   if (boss && arenaLocked && !boss.dead) {
     const bw = 200, x = (W - bw) / 2, y = H - 12;
@@ -2479,10 +2639,10 @@ function drawMenu() {
   ctx.fillStyle = 'rgba(10,6,8,.7)'; ctx.fillRect(0, 0, W, H);
   const m = menu, x = 40, w = 240;
   drawTextS(m.title, W / 2, 10, '#f2c14e', 2, 'center');
+  if (m.kind === 'bag') return drawBag(m);
+  if (m.kind === 'stats') return drawStats(m);
   if (m.kind === 'level') {
     drawTextS('LV ' + CH.lvl + '   XP ' + CH.xp + '   COST ' + lvlCost(), W / 2, 26, CH.xp >= lvlCost() ? '#7fe08a' : '#d8c8b8', 1, 'center');
-  } else if (m.kind === 'equip') {
-    drawTextS('TAP A SLOT TO SWAP GEAR', W / 2, 26, '#d8c8b8', 1, 'center');
   } else if (m.kind === 'cook') {
     let bx = W / 2 - 92;
     for (const p of PARTS) { drawPart(p, bx, 22); bx = drawText(p.toUpperCase() + ' ' + (CH.bag[p] || 0), bx + 10, 24, '#d8c8b8') + 10; }
@@ -2490,20 +2650,77 @@ function drawMenu() {
     drawTextS('HEALTH AND FLASKS RESTORED. MONSTERS RETURN.', W / 2, 26, '#d8c8b8', 1, 'center');
   }
   m.items.forEach((it, i) => {
-    const ck = m.kind === 'cook', y = 38 + i * (ck ? 22 : 24), sel = i === m.sel, h = it.label === 'BACK' || m.kind === 'bonfire' || m.kind === 'pause' ? 16 : ck ? 20 : 22;
+    const ck = m.kind === 'cook', y = 38 + i * (m.kind === 'level' ? 20 : 22), sel = i === m.sel, h = ck && it.meal ? 20 : 16;
     let label = it.label;
     if (it.stat) {
-      const cur = CH[it.stat], eff = it.stat === 'vit' ? 'HP ' + maxHP() : it.stat === 'end' ? 'STAMINA ' + maxST() : 'DAMAGE X' + dmgMult().toFixed(2);
-      label = it.label + ' ' + cur + '   ' + eff + '   +';
+      const k = it.stat, g = gearBonus(k);
+      label = it.label + ' ' + CH[k] + (g ? ' +' + g : '') + '   ' + statEffect(k) + '   +';
     }
-    if (it.slot) label = it.label + ': ' + ITEMS[CH.eq[it.slot]].name;
     if (it.meal) label = (CH.meal === it.meal ? 'EATEN: ' : '') + it.label + '   ' + needText(it.meal);
-    uiButton(label, x, y, w, h, sel, () => { m.sel = i; it.act(); }, it.meal && !canCook(it.meal) ? '#6a5a5a' : null, it.slot || it.meal ? 4 : undefined);
+    uiButton(label, x, y, w, h, sel, () => { m.sel = i; it.act(); }, it.meal && !canCook(it.meal) ? '#6a5a5a' : null, it.meal ? 4 : undefined);
     if (it.meal) drawText(MEALS[it.meal].desc, W / 2, y + 12, canCook(it.meal) ? '#8fd6c3' : '#5a6a66', 1, 'center');
-    if (it.slot) { drawText(itemLine(CH.eq[it.slot]), W / 2, y + 13, '#8fd6c3', 1, 'center'); gearIcon(CH.eq[it.slot], x + 4, y + h / 2); }
   });
   if (m.msgT > 0) drawTextS(m.msg, W / 2, m.kind === 'cook' ? 148 : 140, '#f2c14e', 1, 'center');
   drawText(isTouchUI() ? 'TAP TO CHOOSE   BLOCK: BACK' : 'W S: CHOOSE   ENTER: OK   ESC: BACK', W / 2, 160, '#8a7a6a', 1, 'center');
+}
+function statEffect(k) { return k === 'vit' ? 'HP ' + maxHP() : k === 'end' ? 'STAMINA ' + maxST() : k === 'str' ? 'DAMAGE X' + dmgMult().toFixed(2) : 'CRIT ' + Math.round(critChance() * 100) + '%'; }
+function cellBox(x, y, sz, col, fill) {
+  ctx.fillStyle = fill; ctx.fillRect(x, y, sz, sz);
+  ctx.fillStyle = col; ctx.fillRect(x, y, sz, 1); ctx.fillRect(x, y + sz - 1, sz, 1); ctx.fillRect(x, y, 1, sz); ctx.fillRect(x + sz - 1, y, 1, sz);
+}
+function drawBag(m) {
+  const list = m.list, sel = list[m.sel];
+  uiButton('BACK', 4, 4, 34, 13, false, m.back);
+  // worn gear
+  SLOTS.forEach((sl, i) => {
+    const id = CH.eq[sl], cx = 60 + i * 50, y = 24;
+    cellBox(cx, y, 20, id === sel ? '#f2c14e' : RAR[ITEMS[id].rar].c, 'rgba(30,20,24,.9)');
+    gearIconC(id, cx + 10, y + 10);
+    drawText(SLOT_NAME[sl], cx + 10, y + 22, '#8a7a6a', 1, 'center');
+    uiRects.push({ x: cx, y, w: 20, h: 20, fn: () => { const j = list.indexOf(id); if (j >= 0) { m.sel = j; equipItem(id); } } });
+  });
+  // bag grid
+  const x0 = (W - BAG_COLS * 22) / 2 + 1, y0 = 56;
+  for (let i = 0; i < BAG_COLS * 3; i++) {
+    const id = list[i], cx = x0 + (i % BAG_COLS) * 22, cy = y0 + ((i / BAG_COLS) | 0) * 22;
+    if (!id) { cellBox(cx, cy, 20, '#2a1c20', 'rgba(20,12,16,.6)'); continue; }
+    const it = ITEMS[id], worn = CH.eq[it.slot] === id;
+    cellBox(cx, cy, 20, i === m.sel ? '#ffffff' : RAR[it.rar].c, i === m.sel ? 'rgba(242,193,78,.25)' : 'rgba(30,20,24,.9)');
+    gearIconC(id, cx + 10, cy + 10);
+    if (worn) drawText('E', cx + 2, cy + 2, '#7fe08a');
+    uiRects.push({ x: cx, y: cy, w: 20, h: 20, fn: () => { if (m.sel === i || !isTouchUI()) equipItem(id); m.sel = i; } });
+  }
+  // details of the picked item
+  if (sel) {
+    const it = ITEMS[sel], worn = CH.eq[it.slot] === sel;
+    drawTextS(it.name, W / 2, 124, RAR[it.rar].c, 1, 'center');
+    drawText(RAR[it.rar].name + ' ' + SLOT_NAME[it.slot] + (worn ? '  WORN' : ''), W / 2, 133, '#8a7a6a', 1, 'center');
+    const extra = it.slot !== 'r' && it.slot !== 'n' ? bonusLine(sel) : '';
+    drawText(itemLine(sel) + (extra ? '  ' + extra : ''), W / 2, 141, '#8fd6c3', 1, 'center');
+  }
+  // cooking parts carried
+  let bx = W / 2 - 92;
+  for (const p of PARTS) { drawPart(p, bx, 148); bx = drawText(p.toUpperCase() + ' ' + (CH.bag[p] || 0), bx + 10, 150, '#d8c8b8') + 10; }
+  if (m.msgT > 0) drawTextS(m.msg, W / 2, 163, '#f2c14e', 1, 'center');
+  else drawText(isTouchUI() ? 'TAP TWICE TO WEAR   BLOCK: BACK' : 'ARROWS: PICK   ENTER: WEAR OR TAKE OFF   I: BACK', W / 2, 163, '#8a7a6a', 1, 'center');
+}
+function drawStats(m) {
+  heroIdle(CH.cls, CH.eq); blitHero(44, 112, 1, 0, 3);
+  drawTextS(CLASSES[CH.cls].name + '  LV ' + CH.lvl, 44, 120, '#f4ead6', 1, 'center');
+  drawText('XP ' + CH.xp, 44, 130, '#f2c14e', 1, 'center');
+  STATS.forEach((k, i) => {
+    const y = 32 + i * 12, g = gearBonus(k);
+    drawText(STAT_NAME[k], 92, y, '#d8c8b8');
+    drawText(String(CH[k]), 160, y, '#f4ead6');
+    if (g) drawText('+' + g, 174, y, '#7fe08a');
+    drawText(String(stat(k)), 194, y, '#f2c14e');
+  });
+  const sh = SHD(), ar = ARM();
+  const rows = [['MAX HP', maxHP()], ['STAMINA', maxST()], ['DAMAGE', 'X' + dmgMult().toFixed(2)], ['CRIT CHANCE', Math.round(critChance() * 100) + '%'],
+    ['DEFENSE', Math.round(ar.def * 100) + '%'], ['BLOCK', Math.round(sh.absorb * 100) + '%'], ['PARRY WINDOW', sh.parry], ['WEIGHT', ar.wt.toUpperCase()]];
+  rows.forEach(([n, v], i) => { const y = 88 + (i >> 1) * 11, cx = i & 1 ? 214 : 92; drawText(n, cx, y, '#8a7a6a'); drawText(String(v), cx + 66, y, '#f4ead6'); });
+  drawText('GEAR GIVES THE GREEN BONUS. CRIT DEALS 1.5X DAMAGE.', W / 2, 140, '#8fd6c3', 1, 'center');
+  uiButton('BACK', 130, 150, 60, 14, true, m.back);
 }
 function drawWin() {
   drawBackdrop(ARENA_X);
@@ -2581,6 +2798,7 @@ function render() {
   }
   const want = isTouchUI() && state === 'play' && !!interact;
   document.body.classList.toggle('has-fire', hasFire());
+  document.body.classList.toggle('in-play', state === 'play');
   if (want !== useShown) { useShown = want; const b = document.getElementById('bUse'); b.style.display = want ? 'flex' : 'none'; b.textContent = interact ? (interact.label === 'OPEN' ? 'OPEN' : 'REST') : 'USE'; }
 }
 
