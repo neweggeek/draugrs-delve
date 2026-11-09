@@ -150,6 +150,12 @@ async def main():
           for (const cls of CLASS_KEYS) for (const w of W) for (const s of Sh) for (const a of A) { tot++; paintHero({ cls, w, s, a, legs: 'walk1', A: -60, block: s !== 'none' });
             const d = hb.getImageData(0, 0, 48, 40).data; let px = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) px++; if (px > 120) ok++; } return ok === tot; })()""")
         check("hero paints with every gear combo", n)
+        # juice: death shatters into sprite pixels, squash and stretch, low HP heartbeat
+        n = await ev("(() => { const e = makeEnemy('t', 10, 5); const before = particles.length; shatter(e); return particles.length - before; })()")
+        check("dead enemy shatters into its pixels", n > 40, f"{n} pixels")
+        sq = await ev("(() => { const e = makeEnemy('t', 10, 5); startAtk(e, { wind: 20, act: 10, rec: 10 }); e.t2 = 5; const a = enemyScale(e); e.st = 'act'; e.t2 = 10; const b = enemyScale(e); e.st = 'idle'; e.flash = 0; e.land = 0; const c = enemyScale(e); return [a[0] > 1 && a[1] < 1, b[0] < 1 && b[1] > 1, c[0] === 1 && c[1] === 1]; })()")
+        check("enemy squash on wind-up, stretch on strike", sq == [True, True, True], str(sq))
+        check("low HP heartbeat", await ev("(() => { const s = P.state, h = P.hp; P.state = 'free'; P.hp = 1; const a = lowHP(); P.hp = maxHP(); const b = lowHP(); P.state = s; P.hp = h; return a && !b; })()"))
         check("no page errors", not errs, "; ".join(errs[:3]))
         await b.close()
 
