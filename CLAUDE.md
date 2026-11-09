@@ -35,5 +35,6 @@ World (`updateWorld`), Menus and UI flow, Rendering, Main loop, test hook `windo
 - Mobile matters: every feature needs a touch path (on-screen buttons or tapping `uiRects`).
 
 ## Publishing
+Bump `VERSION` (top of the script, shown as a watermark on screen) in every PR that changes the game.
 The game is also published as a claude.ai artifact (single file). Re-publish `index.html` after changes.
 The title music is the only external file (`docs/music/dungeon_music_preview.mp3`); the game must keep working without it.
