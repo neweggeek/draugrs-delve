@@ -56,7 +56,7 @@ body.is-touch.portrait #rot{display:block}
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V16 2026-11-09 BAG ACTIONS';
+const VERSION = 'V17 2026-11-09 CONCEPT ART';
 const W = 320, H = 176, TS = 16;
 // RES = screen pixels per game pixel. Game logic and layout stay 320x176, but every canvas is drawn at RES times
 // the detail: sprites are upscaled with finer outlines and shading, tiles and walls get half pixel texture.
@@ -454,13 +454,13 @@ function blit(s, x, y, i = 0) { ctx.drawImage(s.c[i], px(x), px(y), s.w, s.h); }
 
 // ================= Levels (areas) =================
 const THEMES = {
-  hall:    { amb: .74, pal: ['#3a2226','#43272a','#4d2c2c','#2e1c20'] },
-  ossuary: { amb: .78, pal: ['#2e2a33','#36303b','#3e3640','#28232c'], decor: 'skull' },
-  forge:   { amb: .6,  pal: ['#4a2420','#58291f','#632e22','#3b1d1a'], decor: 'ember' },
-  barrow:  { amb: .66, pal: ['#26302a','#2c3730','#33402f','#202822'], decor: 'moss' },
-  throne:  { amb: .7,  pal: ['#3a1f2e','#452436','#2e1825','#4f2a3b'] },
-  ice:     { amb: .8,  pal: ['#26323e','#2c3a48','#33424f','#1f2a34'], decor: 'skull' },
-  abyss:   { amb: .58, pal: ['#241a30','#2b1f3a','#332444','#1c1426'], decor: 'ember' }
+  hall:    { amb: .74, pal: ['#1f2026','#23252c','#282a32','#1a1c22'], tile: ['#121216','#3a3a40','#5a5a62','#26262c'], moss: 1 },
+  ossuary: { amb: .78, pal: ['#222025','#27252a','#2d2a2f','#1d1c20'], tile: ['#141216','#403c40','#625c60','#2a2628'], moss: .5, decor: 'skull' },
+  forge:   { amb: .6,  pal: ['#2a1c19','#31201c','#38251f','#251714'], tile: ['#160e0c','#4a3a36','#6e5850','#2e2220'], moss: 0, decor: 'ember' },
+  barrow:  { amb: .66, pal: ['#1c221f','#202723','#252d27','#171c16'], tile: ['#101410','#363e38','#566258','#222a24'], moss: 1.6, decor: 'moss' },
+  throne:  { amb: .7,  pal: ['#221a23','#271f29','#2d2330','#1d161f'], tile: ['#140e14','#3e3440','#625464','#282028'], moss: .4 },
+  ice:     { amb: .8,  pal: ['#1c252d','#202a35','#25303a','#161f26'], tile: ['#0e1418','#3a4a56','#6a8494','#26323c'], moss: 0, decor: 'skull' },
+  abyss:   { amb: .58, pal: ['#1a1323','#1f162a','#251a32','#140e1c'], tile: ['#0e0a14','#352a44','#54446a','#221a2e'], moss: .3, decor: 'ember' }
 };
 // Every area: ceiling, floor, side walls, bonfire at the left, exit door at the right (boss area has no exit).
 // op = [char, col, row, count = 1, height = 1]. c = XP shard, p = flask refill, G = gear chest.
@@ -476,7 +476,7 @@ const LEVELS = [
    ['b',11,3],['b',17,2],['b',23,3],['b',30,2],['b',35,3]]},
  { name: 'THRALL BARRACKS', mob: 't', theme: 'ossuary', w: 40, chest: 'thrallblade', tip: 'BLOCK ALL THREE SWINGS. BLOCK LATE TO PARRY.', ops: [
    ['T',7,3],['T',14,3],['T',24,3],['T',34,3],
-   ['=',17,7,6],['c',18,6,4],['.',22,9,2],['c',22,9,2],['p',28,8],['G',35,8],
+   ['=',17,7,6],['c',18,6,4],['.',22,9,2],['c',22,9,2],['p',28,8],['G',35,8],['^',25,8],
    ['t',12,8],['t',19,6],['t',27,8],['t',32,8]]},
  { name: "ARCHERS' GALLERY", mob: 'a', theme: 'ossuary', w: 40, tip: 'HOLD BLOCK AND WALK IN. ARROWS BREAK ON SHIELDS.', ops: [
    ['T',7,3],['T',16,3],['T',28,3],
@@ -490,7 +490,7 @@ const LEVELS = [
    ['s',10,1],['s',15,1],['s',21,1],['s',29,1],['s',34,1]]},
  { name: 'SLIME PITS', mob: 'e', theme: 'forge', w: 40, chest: 'emberdaggers', tip: 'FIRE BURNS THROUGH YOUR SHIELD. BIG SLIMES SPLIT.', ops: [
    ['T',7,3],['T',10,3],['T',17,3],['T',24,3],['T',31,3],['T',36,3],
-   ['.',11,9,3],['.',23,9,3],['c',12,9],['c',24,9],['=',16,7,4],['=',29,7,4],['c',17,6,2],['p',30,6],['G',35,8],
+   ['.',11,9,3],['.',23,9,3],['c',12,9],['c',24,9],['=',16,7,4],['^',21,8],['=',29,7,4],['c',17,6,2],['p',30,6],['G',35,8],
    ['e',9,8],['e',19,8],['e',27,8],['e',33,8]]},
  { name: 'WISP CHAMBER', mob: 'w', theme: 'forge', w: 40, chest: 'forgeaxe', tip: 'A GLOWING WISP CANNOT BE HURT. WAIT FOR IT TO DIM.', ops: [
    ['T',7,3],['T',10,2],['T',17,3],['T',24,2],['T',31,3],['T',37,3],
@@ -498,7 +498,7 @@ const LEVELS = [
    ['w',11,3],['w',17,5],['w',23,3],['w',28,5],['w',34,4]]},
  { name: 'SHAMBLING HALLS', mob: 'h', theme: 'barrow', w: 40, chest: 'mail', tip: 'RED FLASH: YOU CANNOT BLOCK IT. ROLL.', ops: [
    ['T',7,4],['T',14,4],['T',24,4],['T',34,4],
-   ['=',14,7,3],['=',26,7,3],['c',8,6,3],['c',26,6,3],['p',20,8],['G',35,8],
+   ['=',14,7,3],['=',26,7,3],['c',8,6,3],['c',26,6,3],['p',20,8],['G',35,8],['^',17,8],
    ['h',12,8],['h',22,8],['h',31,8]]},
  { name: 'SHIELD WALL', mob: 'k', theme: 'barrow', w: 40, tip: 'HEAVY ATTACKS BREAK SHIELDS. OR STRIKE ITS BACK.', ops: [
    ['T',7,4],['T',14,4],['T',24,4],['T',34,4],
@@ -542,7 +542,7 @@ const NOUN = ['CRYPT', 'CATACOMBS', 'OSSUARY', 'MINES', 'HOARD', 'HALLS', 'BARRO
 const GEN_TIPS = ['GREEN SLIMES HEAL FAST. KILL THEM IN ONE PUSH.', 'BLUE SLIMES SHRUG OFF LIGHT HITS. GO HEAVY.', 'A SWELLING RED SLIME WILL BURST. ROLL AWAY.',
   "NEVER SWING INTO A SPIDER WARRIOR'S STANCE. GET BEHIND IT.", 'FALLEN THRALLS RISE AGAIN. CRUSH THE BONES WITH A HEAVY.', 'BLOCK LATE TO PARRY AN ARROW BACK.',
   'RATS HUNT IN PACKS. LURE ONE AWAY.', 'MIXED BLOOD. READ EACH TELL.', 'A TINTED FOE CARRIES A TRAIT.', 'CARVE PARTS. COOK THEM AT THE BONFIRE.', 'GIANTS HIT HARDER. ROLL MORE.',
-  'FROST FOES DRAIN STAMINA, EVEN ON BLOCK.', 'EMBER FOES BURN WHERE THEY FALL.', 'CURSED FOES HEAL WHEN THEY HIT YOU.', 'IRON FOES SHRUG OFF STAGGER.'];
+  'FROST FOES DRAIN STAMINA, EVEN ON BLOCK.', 'SPIKES IGNORE ROLLS. JUMP THEM.', 'EMBER FOES BURN WHERE THEY FALL.', 'CURSED FOES HEAL WHEN THEY HIT YOU.', 'IRON FOES SHRUG OFF STAGGER.'];
 function seeded(s) { return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }
 function genFloor(n) {
   const R = seeded(1000 + n * 7919), pick = a => a[(R() * a.length) | 0], ri = (a, b) => a + ((R() * (b - a + 1)) | 0);
@@ -571,6 +571,7 @@ function genFloor(n) {
     } else if (r < .62) { used = ri(2, 3); ops.push(['.', x, 9, used], ['c', x, 9, used]); for (let i = 0; i < used; i++) busy.add(x + i); }
     else if (r < .77) { used = 1; ops.push(['#', x, 7, 1, 2], ['c', x, 6]); busy.add(x); }
     else if (r < .87 && !chest) { used = 3; chest = true; ops.push(['=', x, 7, 3], ['G', x + 1, 8]); }
+    else if (r >= .87) { used = n >= 30 && R() < .4 ? 2 : 1; ops.push(['^', x, 8, used]); for (let i = 0; i < used; i++) busy.add(x + i); } // spike trap
     else used = 2;
     x += used + ri(2, 4);
   }
@@ -612,7 +613,7 @@ const hasAltar = n => n % 3 === 2 && !LEVELS[n].arena; // a rune altar on every 
 function buildLevel(n) {
   LV = LEVELS[n]; MW = LV.w;
   MAP = [...Array(MH)].map(() => Array(MW).fill('.'));
-  SPAWNS = { torches: [], coins: [], potions: [], mobs: [], start: null, exit: null, bonfire: null, chest: null, altar: null, shrine: null };
+  SPAWNS = { spikes: [], torches: [], coins: [], potions: [], mobs: [], start: null, exit: null, bonfire: null, chest: null, altar: null, shrine: null };
   SAFE = null;
   const low = LV.theme === 'barrow';
   const ops = [['#',0,0,MW,low ? 3 : 1],['#',0,9,MW,2],['#',0,1,1,8],['#',MW - 1,1,1,8],['F',4,8]].concat(LV.ops);
@@ -632,6 +633,7 @@ function buildLevel(n) {
     if (ch === '#' || ch === '=' || ch === '.') continue;
     MAP[y][x] = '.';
     if (ch === 'T') SPAWNS.torches.push({ x: x * TS + 8, y: y * TS + 8 });
+    else if (ch === '^') SPAWNS.spikes.push({ x: x * TS + 1, y: y * TS + 10, w: 14, h: 6 });
     else if (ch === 'c') SPAWNS.coins.push({ x: x * TS + 4, y: y * TS + 4 });
     else if (ch === 'p') SPAWNS.potions.push({ x: x * TS + 4, y: y * TS + 8 });
     else if (ch === 'X') SPAWNS.exit = { x: x * TS, y: (y - 1) * TS, w: 16, h: 32 };
@@ -688,23 +690,44 @@ const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
 const bg = document.createElement('canvas'); bg.height = H;
 const bgWall = document.createElement('canvas'); bgWall.height = H;
 const FP = 1 / RES; // one fine pixel, in game pixels
+// exit: a raised portcullis in a stone arch, iron teeth showing at the top
 function drawDoor(b, ex, ey) {
-  b.fillStyle = '#8a5a40'; b.fillRect(ex - 1, ey + 3, 18, 29); b.fillRect(ex + 2, ey, 12, 3);
-  b.fillStyle = '#5a3a30'; b.fillRect(ex, ey + 4, 16, 28); b.fillRect(ex + 3, ey + 1, 10, 3);
-  // stone frame blocks with fine highlights
-  b.fillStyle = '#a0704e'; for (let y = ey + 4; y < ey + 32; y += 6) { b.fillRect(ex - 1, y, FP, 5); b.fillRect(ex + 16, y, FP, 5); }
-  b.fillStyle = '#3e2620'; for (let y = ey + 9; y < ey + 32; y += 6) { b.fillRect(ex - 1, y, 2, FP); b.fillRect(ex + 15, y, 2, FP); }
-  b.fillStyle = '#b8845a'; b.fillRect(ex + 2, ey, 12, FP); b.fillRect(ex - 1, ey + 3, 3, FP); b.fillRect(ex + 14, ey + 3, 3, FP);
-  b.fillStyle = '#080507'; b.fillRect(ex + 2, ey + 5, 12, 27); b.fillRect(ex + 4, ey + 3, 8, 2);
-  b.fillStyle = '#1a1014'; b.fillRect(ex + 2, ey + 5, 12, FP * 2);
+  const f = FP;
+  b.fillStyle = '#060508'; b.beginPath(); b.moveTo(ex - 3, ey + 32); b.lineTo(ex - 3, ey + 8); b.arc(ex + 8, ey + 8, 11, Math.PI, 0); b.lineTo(ex + 19, ey + 32); b.fill();
+  for (let i = 0; i < 9; i++) { // arch stones
+    const a0 = Math.PI + i * Math.PI / 9, a1 = a0 + Math.PI / 9 - .06, r0 = 9, r1 = 13;
+    b.fillStyle = i % 2 ? '#4a4a52' : '#56565e'; b.beginPath(); b.arc(ex + 8, ey + 8, r1, a0, a1); b.arc(ex + 8, ey + 8, r0, a1, a0, true); b.fill();
+    b.fillStyle = '#6e6e78'; b.beginPath(); b.arc(ex + 8, ey + 8, r1 - .25, a0, a1); b.arc(ex + 8, ey + 8, r1 - .75, a1, a0, true); b.fill();
+  }
+  for (let y = ey + 8; y < ey + 32; y += 4) for (const x of [ex - 5, ex + 17]) { // jamb stones
+    b.fillStyle = '#121216'; b.fillRect(x, y, 4, 4); b.fillStyle = (y / 4) % 2 ? '#4a4a52' : '#56565e'; b.fillRect(x + f, y + f, 4 - f * 2, 4 - f * 2); b.fillStyle = '#6e6e78'; b.fillRect(x + f, y + f, 4 - f * 2, f);
+  }
+  b.fillStyle = '#0e0c12'; b.fillRect(ex - 1, ey + 2, 18, 30);
+  b.fillStyle = '#1a1620'; b.fillRect(ex - 1, ey + 26, 18, 6);
+  for (let x = ex; x < ex + 17; x += 3) { // the raised gate: bars ending in spikes
+    b.fillStyle = '#2e2620'; b.fillRect(x, ey, 1.5, 9); b.fillStyle = '#6e5a48'; b.fillRect(x, ey, f, 9);
+    b.fillStyle = '#4a3e34'; b.fillRect(x + .25, ey + 9, 1, 1); b.fillRect(x + .5, ey + 10, f, 1);
+  }
+  b.fillStyle = '#2e2620'; b.fillRect(ex - 1, ey + 2, 18, 1.5); b.fillRect(ex - 1, ey + 6, 18, 1.5); b.fillStyle = '#6e5a48'; b.fillRect(ex - 1, ey + 2, 18, f); b.fillRect(ex - 1, ey + 6, 18, f);
 }
 // One stone block face (16x16) at fine detail: mortar lines, bevelled bricks, speckles, and an optional lit top lip.
 // pal: [mortar, brick, light, dark]
+const MOSS = ['#1e3218', '#2e4a22', '#44682c', '#5e8a3a', '#7aa84a'];
+const shadeHexHex = (h, k) => hexOf(hexRGB(h).map(v => k > 1 ? v + (255 - v) * (k - 1) : v * k));
+// moss along a top edge: tufts on top, a few vines dripping down over the face (amount from the theme)
+function mossAt(b, px, py, w, R, amt = (THEMES[LV && LV.theme] || {}).moss ?? 1) {
+  const f = FP;
+  for (let x = 0; x < w; x += 1.5) {
+    if (R() > .55 * amt) continue;
+    const h = .5 + R() * 1.5; b.fillStyle = MOSS[2]; b.fillRect(px + x, py - h + 1, 1.5, h); b.fillStyle = MOSS[3 + (R() < .4 ? 1 : 0)]; b.fillRect(px + x, py - h + 1, 1, f);
+  }
+  if (R() < .35 * amt) { const x = px + 1 + R() * (w - 2), l = 2 + R() * 7; b.fillStyle = MOSS[1]; b.fillRect(x, py + 1, f * 2, l); b.fillStyle = MOSS[3]; b.fillRect(x, py + 1, f, l * .7); for (let y = 2; y < l; y += 2 + R() * 2) { b.fillStyle = MOSS[R() < .5 ? 2 : 4]; b.fillRect(x + (R() < .5 ? -f * 2 : f * 2), py + y, f * 2, f * 2); } }
+}
 function stoneTile(b, px, py, R, pal, alt, top, under) {
   const f = FP;
   b.fillStyle = pal[0]; b.fillRect(px, py, TS, TS);
   const brick = (x, y, w, h) => {
-    b.fillStyle = pal[1]; b.fillRect(x, y, w, h);
+    b.fillStyle = shadeHexHex(pal[1], .86 + R() * .28); b.fillRect(x, y, w, h);
     b.fillStyle = pal[2]; b.fillRect(x, y, w, f); b.fillRect(x, y, f, h);
     b.fillStyle = pal[3]; b.fillRect(x, y + h - f, w, f); b.fillRect(x + w - f, y, f, h);
     for (let i = 0; i < 3; i++) { b.fillStyle = R() < .5 ? pal[2] : pal[3]; b.fillRect(x + 1 + R() * (w - 2), y + 1 + R() * (h - 2), f, f); }
@@ -713,32 +736,34 @@ function stoneTile(b, px, py, R, pal, alt, top, under) {
   brick(px + f, py + f, TS - f * 2, 7 - f);
   brick(px + (alt ? f : 8 + f), py + 8 + f, 7 - f, 7 - f);
   brick(px + (alt ? 8 + f : f), py + 8 + f, 7 - f, 7 - f);
-  if (top) {
-    b.fillStyle = '#5a3a2c'; b.fillRect(px, py, TS, 2.5);
-    b.fillStyle = '#8a5a40'; b.fillRect(px, py, TS, 1.5);
-    b.fillStyle = '#b07a52'; b.fillRect(px, py, TS, f);
-    b.fillStyle = '#3e2620'; b.fillRect(px, py + 2.5, TS, f);
-    for (let i = 0; i < 3; i++) { b.fillStyle = R() < .5 ? '#a06a48' : '#6a4434'; b.fillRect(px + R() * 15, py + f + R(), 1, f); }
-    if (R() < .4) { b.fillStyle = '#5a3a2c'; const dx = px + 2 + R() * 12; b.fillRect(dx, py + 3, f, 1 + R() * 2); }
+  if (top) { // worn cobbles on top, moss tufts and vines hanging over the face
+    b.fillStyle = pal[0]; b.fillRect(px, py, TS, 3);
+    for (let x = 0; x < TS;) { const w = 3 + ((R() * 3) | 0) * f * 2; b.fillStyle = pal[2]; b.fillRect(px + x + f, py + f, Math.min(w, TS - x) - f, 2); b.fillStyle = shadeHexHex(pal[2], 1.2); b.fillRect(px + x + f, py + f, Math.min(w, TS - x) - f, f); b.fillStyle = pal[3]; b.fillRect(px + x + f, py + 2.5, Math.min(w, TS - x) - f, f); x += w; }
+    mossAt(b, px, py, TS, R);
   }
   if (under) { b.fillStyle = '#150d10'; b.fillRect(px, py + 14, TS, 2); b.fillStyle = '#0c0709'; b.fillRect(px, py + 15, TS, 1); }
 }
-// A wooden ledge plank (16 wide, 5 high) with grain, seams, nails and a bracket under it.
-function plankTile(b, px, py, R, edgeL, edgeR) {
+// A ledge: a stone slab (16 wide, 5 high) of cobbles with moss on top and a carved corbel under some tiles.
+function plankTile(b, px, py, R, edgeL, edgeR, pal = THEMES[LV.theme].tile, x = 0) {
   const f = FP;
-  b.fillStyle = '#2a1a18'; b.fillRect(px, py + 5, TS, 2);
-  b.fillStyle = '#5a3a30'; b.fillRect(px, py, TS, 5);
-  b.fillStyle = '#a0704e'; b.fillRect(px, py, TS, f);
-  b.fillStyle = '#8a5a40'; b.fillRect(px, py + f, TS, f);
-  b.fillStyle = '#4a2e26'; b.fillRect(px, py + 4.5, TS, f);
-  for (let i = 0; i < 3; i++) { b.fillStyle = R() < .5 ? '#4a2e26' : '#6e4836'; b.fillRect(px + R() * 10, py + 1.5 + ((R() * 5) | 0) * f, 2 + R() * 5, f); }
-  b.fillStyle = '#2a1a18'; b.fillRect(px + 8, py + f, f, 4);
-  b.fillStyle = '#b8b0a0'; b.fillRect(px + 1.5, py + 2, f, f); b.fillRect(px + 9.5, py + 2, f, f);
-  if (edgeL) { b.fillStyle = '#3e2620'; b.fillRect(px, py, f, 5); }
-  if (edgeR) { b.fillStyle = '#3e2620'; b.fillRect(px + TS - f, py, f, 5); }
-  b.fillStyle = '#3e2620'; b.fillRect(px + 7, py + 5, 2, 4);
-  b.fillStyle = '#6a4434'; b.fillRect(px + 7, py + 5, f, 4);
-  b.fillStyle = '#1e1210'; b.fillRect(px + 7, py + 8.5, 2, f);
+  b.fillStyle = pal[0]; b.fillRect(px, py, TS, 5.5);
+  for (let i = 0; i < 2; i++) { // two blocks on the face, offset per tile
+    const bx = px + (x % 2 ? i * 8 - 4 : i * 8) + f, w = 8 - f * 2;
+    const x0 = Math.max(px + (edgeL ? 1 : 0), bx), x1 = Math.min(px + TS - (edgeR ? 1 : 0), bx + w);
+    if (x1 <= x0) continue;
+    b.fillStyle = pal[1]; b.fillRect(x0, py + 2, x1 - x0, 3); b.fillStyle = pal[3]; b.fillRect(x0, py + 4.5, x1 - x0, f);
+    if (x1 + 4 <= px + TS && x % 2) { b.fillStyle = pal[1]; b.fillRect(x1 + f * 2, py + 2, Math.min(px + TS - (edgeR ? 1 : 0), x1 + 8) - x1 - f * 2, 3); }
+    b.fillStyle = shadeHexHex(pal[1], .8); b.fillRect(x0 + 1 + R() * (x1 - x0 - 2), py + 2.5 + R() * 2, f, f);
+  }
+  b.fillStyle = pal[2]; b.fillRect(px + (edgeL ? .5 : 0), py + f, TS - (edgeL ? .5 : 0) - (edgeR ? .5 : 0), 1.5);
+  b.fillStyle = shadeHexHex(pal[2], 1.25); b.fillRect(px + (edgeL ? .5 : 0), py + f, TS - (edgeL ? .5 : 0) - (edgeR ? .5 : 0), f);
+  for (let i = 0; i < 4; i++) { b.fillStyle = pal[3]; b.fillRect(px + 1 + R() * 14, py + 1.5, f, f); }
+  if (x % 3 === 1) { // corbel: stepped stone bracket
+    b.fillStyle = pal[0]; b.fillRect(px + 4.5, py + 5, 7, 2.5); b.fillRect(px + 5.5, py + 7, 5, 2.5);
+    b.fillStyle = pal[1]; b.fillRect(px + 5, py + 5.5, 6, 1.5); b.fillRect(px + 6, py + 7.5, 4, 1.5);
+    b.fillStyle = pal[2]; b.fillRect(px + 5, py + 5.5, 6, f); b.fillRect(px + 6, py + 7.5, 4, f);
+  }
+  mossAt(b, px, py, TS, R);
 }
 function paintBg() {
   bg.width = bgWall.width = MW * TS * RES; bg.height = bgWall.height = H * RES;
@@ -746,13 +771,13 @@ function paintBg() {
   const th = THEMES[LV.theme], WW = MW * TS, f = FP;
   let seed = 7 + LEVELS.indexOf(LV) * 131; const R = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => clamp(Math.round(v * f), 0, 255)); return `rgb(${c})`; };
-  b.fillStyle = '#120c10'; b.fillRect(0, 0, WW, H);
+  b.fillStyle = '#0c0c10'; b.fillRect(0, 0, WW, H);
   for (let row = 0; row * 8 < H; row++) {
     const off = row % 2 ? -8 : 0;
     for (let x = off; x < WW; x += 16) {
       const col = th.pal[(R() * th.pal.length) | 0], y = row * 8;
       // fine mortar, bevelled face, speckle grain
-      b.fillStyle = '#180f12'; b.fillRect(x, y, 16, 8);
+      b.fillStyle = '#121216'; b.fillRect(x, y, 16, 8);
       b.fillStyle = col; b.fillRect(x + f, y + f, 16 - f, 8 - f);
       b.fillStyle = shade(col, 1.22); b.fillRect(x + f, y + f, 16 - f, f); b.fillRect(x + f, y + f, f, 8 - f);
       b.fillStyle = shade(col, .78); b.fillRect(x + f, y + 8 - f, 16 - f, f); b.fillRect(x + 16 - f, y + f, f, 8 - f);
@@ -767,14 +792,61 @@ function paintBg() {
       if (th.decor === 'moss' && R() < .12) { const mx = x + 2 + R() * 10; b.fillStyle = '#3e5a3a'; b.fillRect(mx, y + 1, 3, 1); b.fillStyle = '#5a7a4a'; b.fillRect(mx + f, y + 1, 2, f); b.fillStyle = '#2e4a2e'; b.fillRect(mx + 1, y + 2, f, 1 + R() * 2); }
     }
   }
-  // arches with a fine stone rim
-  for (let ax = 8; ax < MW - 4; ax += 14) {
-    const cx = ax * TS, top = 48, half = 22, bottom = 144;
+  // the far wall: deep arches with carved stone rims, pillars between them, some barred by a portcullis,
+  // chains and moss hanging from the vault (the concept art scene)
+  const stoneC = (k) => shade(th.pal[1], k);
+  const top0 = LV.theme === 'barrow' ? 48 : 16;
+  for (let ax = 8, n = 0; ax < MW - 4; ax += 14, n++) {
+    const cx = ax * TS, top = 52, half = 24, bottom = 144;
     const path = (h) => { b.beginPath(); b.moveTo(cx - h, bottom); b.lineTo(cx - h, top + half); b.arc(cx, top + half, h, Math.PI, 0); b.lineTo(cx + h, bottom); };
-    b.strokeStyle = 'rgba(255,220,180,.07)'; b.lineWidth = 1; path(half + 1.5); b.stroke();
-    b.fillStyle = 'rgba(5,3,6,.68)'; path(half); b.closePath(); b.fill();
-    b.fillStyle = 'rgba(5,3,6,.35)'; path(half - 4); b.closePath(); b.fill();
+    b.fillStyle = 'rgba(4,5,10,.82)'; path(half); b.closePath(); b.fill();
+    // faint far stones inside the recess
+    for (let y = top + 6; y < bottom; y += 6) for (let x = cx - half + ((y / 6) % 2) * 5; x < cx + half - 4; x += 10) { b.fillStyle = 'rgba(70,80,110,.07)'; b.fillRect(x, y, 9, 5); b.fillStyle = 'rgba(120,140,180,.06)'; b.fillRect(x, y, 9, f); }
+    b.fillStyle = 'rgba(4,5,10,.5)'; path(half - 6); b.closePath(); b.fill();
+    if (n % 3 === 1) { // portcullis
+      b.save(); path(half - 1); b.closePath(); b.clip();
+      for (let x = cx - half; x < cx + half; x += 5) { b.fillStyle = '#16120e'; b.fillRect(x, top, 2, bottom - top); b.fillStyle = '#4a3a2e'; b.fillRect(x, top, 1, bottom - top); b.fillStyle = '#6e5644'; b.fillRect(x, top, f, bottom - top); }
+      for (let y = top + 18; y < bottom - 6; y += 16) { b.fillStyle = '#16120e'; b.fillRect(cx - half, y, half * 2, 2); b.fillStyle = '#5a4636'; b.fillRect(cx - half, y, half * 2, f); }
+      b.restore();
+    }
+    // voussoirs around the arch
+    for (let i = 0; i < 11; i++) {
+      const a0 = Math.PI + i * Math.PI / 11 + .02, a1 = a0 + Math.PI / 11 - .04, r0 = half, r1 = half + 6;
+      b.fillStyle = '#0e0e12'; b.beginPath(); b.arc(cx, top + half, r1 + .5, a0 - .02, a1 + .02); b.arc(cx, top + half, r0 - .5, a1 + .02, a0 - .02, true); b.fill();
+      b.fillStyle = stoneC(i % 2 ? 1.25 : 1.4); b.beginPath(); b.arc(cx, top + half, r1, a0, a1); b.arc(cx, top + half, r0, a1, a0, true); b.fill();
+      b.fillStyle = stoneC(1.7); b.beginPath(); b.arc(cx, top + half, r1, a0, a1); b.arc(cx, top + half, r1 - f, a1, a0, true); b.fill();
+    }
+    // jambs down to the floor
+    for (const sd of [-1, 1]) for (let y = top + half; y < bottom; y += 7) {
+      const x = sd < 0 ? cx - half - 6 : cx + half;
+      b.fillStyle = '#0e0e12'; b.fillRect(x, y, 6, 7); b.fillStyle = stoneC((y / 7) % 2 ? 1.25 : 1.4); b.fillRect(x + f, y + f, 6 - f * 2, 7 - f * 2);
+      b.fillStyle = stoneC(1.7); b.fillRect(x + f, y + f, 6 - f * 2, f); b.fillStyle = stoneC(.9); b.fillRect(x + f, y + 7 - f * 2, 6 - f * 2, f);
+    }
+    if (th.moss) for (let i = 0; i < 3; i++) mossAt(b, cx - half - 4 + R() * (half * 2), top + half - Math.sqrt(Math.max(0, half * half)) - 5 + R() * 6, 6, R, th.moss * 1.5);
+    // pillar halfway to the next arch
+    const qx = cx + 7 * TS;
+    if (qx < WW - 24) {
+      b.fillStyle = 'rgba(0,0,0,.35)'; b.fillRect(qx - 7, top0, 16, bottom - top0);
+      for (let y = top0; y < bottom; y += 6) { b.fillStyle = '#0e0e12'; b.fillRect(qx - 6, y, 12, 6); b.fillStyle = stoneC((y / 6) % 2 ? 1.15 : 1.3); b.fillRect(qx - 6 + f, y + f, 12 - f * 2, 6 - f * 2);
+        b.fillStyle = stoneC(1.6); b.fillRect(qx - 6 + f, y + f, f * 2, 6 - f * 2); b.fillStyle = stoneC(.85); b.fillRect(qx + 6 - f * 3, y + f, f * 2, 6 - f * 2);
+        if (R() < .3) { b.fillStyle = stoneC(.9); b.fillRect(qx - 4 + R() * 8, y + 1 + R() * 3, 1.5, f); } }
+      for (const y of [top0 + 2, bottom - 6]) { b.fillStyle = '#0e0e12'; b.fillRect(qx - 8, y, 16, 4); b.fillStyle = stoneC(1.45); b.fillRect(qx - 8 + f, y + f, 16 - f * 2, 3); b.fillStyle = stoneC(1.8); b.fillRect(qx - 8 + f, y + f, 16 - f * 2, f); }
+      if (th.moss) mossAt(b, qx - 8, top0 + 6, 16, R, th.moss * 2);
+    }
   }
+  // hanging chains: iron links from the vault, some sagging between two hooks
+  for (let x = 30 + R() * 60; x < WW - 20; x += 50 + R() * 90) {
+    const len = 20 + R() * 60, rust = R() < .5;
+    for (let y = top0; y < top0 + len; y += 3) {
+      const ox = Math.sin(y * .05) * .5, wide = ((y - top0) / 3) % 2 === 0;
+      b.fillStyle = '#0c0a0c'; b.fillRect(x - (wide ? 1.5 : .5) + ox, y - .5, wide ? 3 : 1, 4);
+      b.fillStyle = rust ? '#5a3a28' : '#46424a'; b.fillRect(x - (wide ? 1 : 0) + ox, y, wide ? 2 : f, 3);
+      b.fillStyle = rust ? '#8a5a38' : '#6e6874'; b.fillRect(x - (wide ? 1 : 0) + ox, y, f, 2);
+    }
+    if (R() < .3) { b.fillStyle = '#0c0a0c'; b.fillRect(x - 2.5, top0 + len, 5, 3); b.fillStyle = '#46424a'; b.fillRect(x - 2, top0 + len, 4, 2); }
+  }
+  // moss and roots creeping down from the ceiling
+  if (th.moss) for (let x = 0; x < WW; x += 6) if (R() < .3 * th.moss) mossAt(b, x, top0, 6, R, th.moss * 1.4);
   // sconces
   for (const t of SPAWNS.torches) {
     b.fillStyle = '#3e2418'; b.fillRect(t.x - 1, t.y + 1, 3, 14);
@@ -786,11 +858,11 @@ function paintBg() {
   }
   b = bg.getContext('2d'); b.setTransform(1, 0, 0, 1, 0, 0); b.drawImage(bgWall, 0, 0); b.setTransform(RES, 0, 0, RES, 0, 0);
   // tiles
-  const STONE = ['#22161a', '#2d1d21', '#3a262a', '#1c1215'];
+  const STONE = th.tile;
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const ch = MAP[y][x], px = x * TS, py = y * TS;
     if (ch === '#') stoneTile(b, px, py, R, STONE, y % 2, y > 0 && MAP[y - 1][x] !== '#', y < MH - 1 && MAP[y + 1][x] !== '#');
-    else if (ch === '=') plankTile(b, px, py, R, x === 0 || MAP[y][x - 1] !== '=', x === MW - 1 || MAP[y][x + 1] !== '=');
+    else if (ch === '=') plankTile(b, px, py, R, x === 0 || MAP[y][x - 1] !== '=', x === MW - 1 || MAP[y][x + 1] !== '=', th.tile, x);
   }
   if (SPAWNS.exit) drawDoor(b, SPAWNS.exit.x, SPAWNS.exit.y);
   V3.level();
@@ -841,20 +913,21 @@ const V3 = (() => {
   const wallTex = tex(), atlasTex = tex();
   // atlas: 4 tiles of 16x16. 0 brick face, 1 stone top, 2 ledge side, 3 ledge top
   const at = document.createElement('canvas'); at.width = 64 * RES; at.height = 16 * RES;
-  { const a = at.getContext('2d'); a.scale(RES, RES);
+  // painted per level in the theme's stone colors
+  const paintAtlas = () => { const a = at.getContext('2d'); a.setTransform(RES, 0, 0, RES, 0, 0); a.clearRect(0, 0, 64, 16);
     let seed = 99; const R = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-    stoneTile(a, 0, 0, R, ['#22161a', '#2d1d21', '#3a262a', '#1c1215'], 0, false, false);
-    stoneTile(a, 16, 0, R, ['#4a3028', '#5c3c30', '#6e4a3a', '#46302a'], 0, false, false);
-    a.fillStyle = '#5a3a30'; a.fillRect(32, 0, 16, 16); a.fillStyle = '#a0704e'; a.fillRect(32, 0, 16, FP); a.fillStyle = '#8a5a40'; a.fillRect(32, FP, 16, FP);
-    a.fillStyle = '#4a2e26'; for (let i = 0; i < 4; i++) a.fillRect(32 + R() * 10, 1.5 + R() * 2, 3 + R() * 3, FP);
-    a.fillStyle = '#2a1a18'; a.fillRect(32, 4.5, 16, FP);
-    a.fillStyle = '#6a4434'; a.fillRect(48, 0, 16, 16);
-    for (let i = 0; i < 16; i += 4) { a.fillStyle = '#4a2e26'; a.fillRect(48, i, 16, FP); a.fillStyle = '#7e5440'; a.fillRect(48, i + FP, 16, FP);
-      a.fillStyle = '#5a3a2c'; a.fillRect(48 + R() * 10, i + 1.5 + R(), 3 + R() * 4, FP); a.fillStyle = '#b8b0a0'; a.fillRect(50, i + 2, FP, FP); a.fillRect(61, i + 2, FP, FP); }
-    gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, at); }
+    const t = THEMES[LV.theme].tile, lt = [t[0], t[2], shadeHexHex(t[2], 1.2), t[1]];
+    stoneTile(a, 0, 0, R, t, 0, false, false);
+    stoneTile(a, 16, 0, R, lt, 0, false, false);
+    a.fillStyle = t[0]; a.fillRect(32, 0, 16, 16); plankTile(a, 32, 0, R, false, false, t, 0);
+    a.fillStyle = t[0]; a.fillRect(48, 0, 16, 16);
+    for (let y = 0; y < 16; y += 4) for (let x = (y / 4) % 2 * -2; x < 16; x += 4) { a.fillStyle = t[2]; a.fillRect(48 + Math.max(0, x) + FP, y + FP, Math.min(4, 16 - x) - FP * 2 - Math.max(0, -x), 4 - FP * 2); a.fillStyle = shadeHexHex(t[2], 1.2); a.fillRect(48 + Math.max(0, x) + FP, y + FP, 2, FP); }
+    for (let i = 0; i < 8; i++) { a.fillStyle = MOSS[2 + (i % 2)]; a.fillRect(48 + R() * 14, R() * 14, 1.5, 1); }
+    gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, at); };
   let nBlocks = 0, wallW = 0;
   const slices = [ZB, ZB + 17, ZB + 34, ZB + 51, ZF];
   api.level = () => {
+    paintAtlas();
     // long levels at fine detail can pass the GPU texture limit: then upload a narrower copy (uv is 0..1 anyway)
     let wall = bgWall;
     const maxT = gl.getParameter(gl.MAX_TEXTURE_SIZE);
@@ -1295,6 +1368,482 @@ Object.assign(SFX, {
   died: () => [196, 165, 131, 98].forEach((f, i) => tone(f, f * .97, .4, .5, .12, i * .25))
 });
 
+// ================= Painted sprites (concept art look) =================
+// Grug plan: monsters, items and the hero body are painted from simple shapes (balls, tapered limbs, polygons)
+// straight onto the fine pixel grid. Each shape shades itself through a color ramp (dark to light) with light
+// from the top left, and gets a dark rim where it overlaps what is behind it. One drawing function per monster
+// takes a state and frame number, so every monster gets idle, walk, wind-up, strike and hurt frames.
+// The old text grids still size the hitboxes, so the rules did not change.
+const OLC = '#140c10';
+const RAMPS = {
+  fur:   ['#1c181c', '#2c2629', '#3e3639', '#544a4d', '#6e6265', '#8a7c7e'],
+  pink:  ['#4a2224', '#7a3e3c', '#a8625a', '#cc8a7c'],
+  bone:  ['#3e382e', '#6a6250', '#9a9078', '#c8bea2', '#ece4cc'],
+  wing:  ['#2e2a2c', '#4e4848', '#787070', '#a49a92'],
+  steel: ['#1e222a', '#363c48', '#4e5664', '#6e7888', '#98a2b0', '#c8d0da'],
+  iron:  ['#1a1a1e', '#2e2c30', '#46424a', '#625c64'],
+  rust:  ['#2a140c', '#4a2414', '#6e3a1e', '#94562e'],
+  blue:  ['#10162a', '#1c2a4c', '#2c4274', '#405e9c', '#6684c0'],
+  red:   ['#300c0c', '#5a1414', '#86221c', '#b23628', '#d85a40'],
+  gold:  ['#3e260a', '#7a5014', '#b88228', '#e8b440', '#fff0a0'],
+  wood:  ['#24140c', '#3e2616', '#5c3c22', '#7e5632'],
+  leath: ['#1e140e', '#352416', '#4e3622', '#6a4c30'],
+  gskin: ['#14260e', '#24441a', '#3a6a28', '#56923a', '#80bc56'],
+  dark:  ['#0c0a10', '#18141e', '#26202e', '#383042', '#4c4258'],
+  purple:['#1a0e2a', '#2e1a4c', '#4a2c78', '#6a46a4', '#9070cc'],
+  cloth: ['#24202a', '#3c3644', '#5e5868', '#8a8494', '#bab4c2'],
+  hood:  ['#141220', '#221e30', '#342c46', '#4a405e', '#625676'],
+  flame: ['#7a1c0a', '#c8402a', '#f08030', '#f8c048', '#fff4c0'],
+  ember: ['#3a1c14', '#5a2c20', '#7a4030', '#9a5a44'],
+  crystal: ['#0e3a4a', '#1a6a80', '#2ea0b8', '#6ad6e8', '#d0f8ff'],
+  potion: ['#3a0a10', '#7a1420', '#b82a30', '#e8504a', '#ff9a8a'],
+  glass: ['#3a4a5a', '#7a90a4', '#c4d4e0'],
+  egg:   ['#6a6458', '#9a9480', '#c8c2aa', '#ece8d6'],
+  slimeE: ['#5a1a08', '#a83a10', '#e06a20', '#f8a040', '#ffe08a'],
+  slimeG: ['#143a10', '#2a6a1a', '#46a02a', '#7cd04a', '#c8f8a0'],
+  slimeU: ['#0e2a4a', '#1a4e84', '#2e7cc0', '#5cb4ec', '#c8f0ff'],
+  slimeV: ['#3a0808', '#701414', '#a82420', '#d84a3a', '#ffa090'],
+  dim:   ['#1e1a22', '#34303a', '#4e4a56', '#6e6a78', '#9a96a2']
+};
+// a blank grid gw x gh game pixels big (RES fine pixels per game pixel)
+function pg(gw, gh) { const w = gw * RES, h = gh * RES; return { w, h, gw, gh, d: new Array(w * h).fill(null), seed: 11 }; }
+const pRand = g => (g.seed = (g.seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+const pSet = (g, x, y, c) => { x = Math.floor(x); y = Math.floor(y); if (x >= 0 && y >= 0 && x < g.w && y < g.h) g.d[y * g.w + x] = c; };
+// color from a ramp for a surface normal (nx, ny); a 2x2 dither softens the band edges
+function rampCol(g, ramp, nx, ny, x, y, o) {
+  const nz = Math.sqrt(Math.max(0, 1 - Math.min(1, nx * nx + ny * ny)));
+  let l = (nx * -.5 + ny * -.62 + nz * .6) * .55 + .5 + (o.lift || 0);
+  if (o.rough) l += (pRand(g) - .5) * o.rough;
+  const v = l * ramp.length - .5 + (((x + y) & 1) ? .22 : -.22);
+  return ramp[clamp(Math.round(v), 0, ramp.length - 1)];
+}
+// fill every fine pixel where test(x, y) gives a normal; rim = dark line where the shape covers something
+function pFill(g, x0, y0, x1, y1, test, ramp, o = {}) {
+  x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(g.w - 1, Math.ceil(x1)); y1 = Math.min(g.h - 1, Math.ceil(y1));
+  const pts = [], inS = new Set();
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const n = test(x + .5, y + .5); if (n) { pts.push([x, y, n[0], n[1]]); inS.add(y * g.w + x); } }
+  if (o.rim !== false) for (const [x, y] of pts) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const xx = x + dx, yy = y + dy, j = yy * g.w + xx;
+    if (xx >= 0 && yy >= 0 && xx < g.w && yy < g.h && !inS.has(j) && g.d[j] !== null) g.d[j] = o.rimC || OLC;
+  }
+  for (const [x, y, nx, ny] of pts) g.d[y * g.w + x] = o.col || rampCol(g, ramp, nx, ny, x, y, o);
+}
+function pEll(g, cx, cy, rx, ry, ramp, o) {
+  pFill(g, cx - rx - 1, cy - ry - 1, cx + rx + 1, cy + ry + 1, (x, y) => { const dx = (x - cx) / rx, dy = (y - cy) / ry; return dx * dx + dy * dy <= 1 ? [dx, dy] : null; }, ramp, o);
+}
+// tapered limb from (x0, y0) radius r0 to (x1, y1) radius r1, shaded like a tube
+function pLimb(g, x0, y0, r0, x1, y1, r1, ramp, o) {
+  const ax = x1 - x0, ay = y1 - y0, L2 = ax * ax + ay * ay || 1, R = Math.max(r0, r1) + 1;
+  pFill(g, Math.min(x0, x1) - R, Math.min(y0, y1) - R, Math.max(x0, x1) + R, Math.max(y0, y1) + R, (x, y) => {
+    const t = clamp(((x - x0) * ax + (y - y0) * ay) / L2, 0, 1), r = Math.max(.6, r0 + (r1 - r0) * t), dx = x - (x0 + ax * t), dy = y - (y0 + ay * t);
+    return dx * dx + dy * dy <= r * r ? [dx / r, dy / r] : null;
+  }, ramp, o);
+}
+// polygon [[x, y], ...]; shaded like a soft dome unless o.n gives a fixed normal
+function pPoly(g, pts, ramp, o = {}) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hw = Math.max(1, (x1 - x0) / 2), hh = Math.max(1, (y1 - y0) / 2);
+  pFill(g, x0, y0, x1, y1, (x, y) => {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside ? (o.n || [(x - cx) / hw * .8, (y - cy) / hh * .8]) : null;
+  }, ramp, o);
+}
+function pLine(g, x0, y0, x1, y1, c) {
+  const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+  for (let i = 0; i <= n; i++) pSet(g, x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, c);
+}
+// a glowing eye: bright pixel with a darker one beside it
+const pEye = (g, x, y, c, c2) => { pSet(g, x, y, c); if (c2) pSet(g, x + 1, y, c2); };
+const HEXC = {};
+const hexRGB = h => HEXC[h] || (HEXC[h] = [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
+// grid to canvas: an outline ring goes around the whole shape
+function pCanvas(g, outline = true) {
+  const { w, h, d } = g, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d'), im = x.createImageData(w, h), o = im.data;
+  for (let y = 0; y < h; y++) for (let i = 0; i < w; i++) {
+    let col = d[y * w + i];
+    if (!col && outline && ((i > 0 && d[y * w + i - 1]) || (i < w - 1 && d[y * w + i + 1]) || (y > 0 && d[(y - 1) * w + i]) || (y < h - 1 && d[(y + 1) * w + i]))) col = OLC;
+    if (!col) continue;
+    const [r, gg, b] = hexRGB(col), k = (y * w + i) * 4; o[k] = r; o[k + 1] = gg; o[k + 2] = b; o[k + 3] = 255;
+  }
+  x.putImageData(im, 0, 0);
+  return c;
+}
+// canvas (fine pixels) to a sprite like mkSprite makes: normal, white flash and red flash copies, each also flipped
+function sprOf(n, gw, gh) {
+  const cw = n.width, chh = n.height;
+  const flip = c => { const d = document.createElement('canvas'); d.width = cw; d.height = chh; const x = d.getContext('2d'); x.translate(cw, 0); x.scale(-1, 1); x.drawImage(c, 0, 0); return d; };
+  const wash = col => { const d = document.createElement('canvas'); d.width = cw; d.height = chh; const x = d.getContext('2d'); x.drawImage(n, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = col; x.fillRect(0, 0, cw, chh); return d; };
+  const wh = wash('#ffffff'), rd = wash('#ff3a2a'), a = n.getContext('2d').getImageData(0, 0, cw, chh).data;
+  let x0 = cw, y0 = chh, x1 = 0, y1 = 0;
+  for (let y = 0; y < chh; y++) for (let x = 0; x < cw; x++) if (a[(y * cw + x) * 4 + 3]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x + 1); y0 = Math.min(y0, y); y1 = Math.max(y1, y + 1); }
+  return { w: gw, h: gh, c: [n, flip(n)], wc: [wh, flip(wh)], rc: [rd, flip(rd)], bb: { x0: x0 / RES, y0: y0 / RES, x1: x1 / RES, y1: y1 / RES } };
+}
+const pSprite = g => sprOf(pCanvas(g), g.gw, g.gh);
+// an animation set: { state: [frames] }. All frames share one box, centered on the body (ax, game px) so they never jitter.
+function mkAnim(gw, gh, ax, rig, spec) {
+  const set = {}; let y0 = gh, y1 = 0;
+  for (const st in spec) set[st] = Array.from({ length: spec[st] }, (_, i) => { const g = pg(gw, gh); rig(g, st, i, spec[st]); const s = pSprite(g); y0 = Math.min(y0, s.bb.y0); y1 = Math.max(y1, s.bb.y1); return s; });
+  for (const st in set) for (const s of set[st]) s.bb = { x0: ax - 3, x1: ax + 3, y0, y1 };
+  return set;
+}
+const DEG = Math.PI / 180;
+const dir = a => [Math.cos(a * DEG), Math.sin(a * DEG)];
+
+// ----- humanoid bodies: two legged walkers share one skeleton -----
+// legs: [far leg, near leg], each [hip angle, knee bend] in degrees; 0 = straight down, + = toward the face
+const LEGS = {
+  idle: [[-12, 8], [14, 10]], wide: [[-22, 16], [26, 22]], crouch: [[-30, 46], [34, 56]],
+  walk1: [[-26, 6], [24, 10]], walk2: [[10, 52], [-4, 4]], walk3: [[24, 10], [-26, 6]], walk4: [[-4, 4], [10, 52]],
+  jump: [[-14, 56], [26, 70]], tuck: [[40, 120], [52, 120]], lunge: [[-36, 4], [40, 30]]
+};
+const WALK4 = ['walk1', 'walk2', 'walk3', 'walk4'];
+// c: { x, L1, L2, legR, legRamp, footRamp, footL, T (torso height), back, farArm, torso, head, arm } (fine pixels)
+// p: { legs, lean, lift }
+function humanoid(g, c, p) {
+  const legs = LEGS[p.legs] || p.legs, base = g.h - 1 - (p.lift || 0);
+  const pts = legs.map(([a, k]) => { const kx = Math.sin(a * DEG) * c.L1, ky = Math.cos(a * DEG) * c.L1; return [kx, ky, kx + Math.sin((a - k) * DEG) * c.L2, ky + Math.cos((a - k) * DEG) * c.L2]; });
+  const fr = c.footR || 1.5, hy = base - fr - Math.max(pts[0][3], pts[1][3]) + .5, hx = c.x, lean = p.lean || 0;
+  const tx = hx + lean, ty = hy - c.T; // shoulders
+  const leg = (q, ramp, foot) => {
+    pLimb(g, hx, hy, c.legR + .4, hx + q[0], hy + q[1], c.legR, ramp);
+    pLimb(g, hx + q[0], hy + q[1], c.legR, hx + q[2], hy + q[3], c.legR - .2, ramp);
+    pLimb(g, hx + q[2] - .5, hy + q[3], fr, hx + q[2] + (c.footL || 2.5), hy + q[3] + .3, fr * .8, foot);
+  };
+  const S = { hx, hy, tx, ty, base };
+  if (c.back) c.back(g, S, p);
+  if (c.farArm) c.farArm(g, S, p);
+  leg(pts[0], c.farRamp || c.legRamp, c.footRamp);
+  leg(pts[1], c.legRamp, c.footRamp);
+  c.torso(g, S, p);
+  c.head(g, S, p);
+  if (c.arm) c.arm(g, S, p);
+  return S;
+}
+// an arm from the shoulder at angle a (0 = forward, 90 = down) with a hand ball; returns the hand
+function pArm(g, sx, sy, a, len, r, ramp, hand) {
+  const [dx, dy] = dir(a), hx = sx + dx * len, hy = sy + dy * len;
+  pLimb(g, sx, sy, r + .3, hx, hy, r, ramp);
+  pEll(g, hx, hy, r + .5, r + .5, hand || ramp);
+  return [hx, hy];
+}
+// weapons held at (hx, hy) pointing at angle a
+function pSword(g, hx, hy, a, len, blade = RAMPS.steel, guard = RAMPS.gold) {
+  const [dx, dy] = dir(a);
+  pLimb(g, hx - dx * 2.5, hy - dy * 2.5, 1, hx + dx, hy + dy, 1, RAMPS.leath);
+  pEll(g, hx - dx * 3, hy - dy * 3, 1.3, 1.3, guard);
+  pLimb(g, hx + dx * 3 + dy * 4, hy + dy * 3 - dx * 4, .9, hx + dx * 3 - dy * 4, hy + dy * 3 + dx * 4, .9, guard);
+  pLimb(g, hx + dx * 3.5, hy + dy * 3.5, 1.6, hx + dx * len, hy + dy * len, .5, blade, { lift: .1 });
+  pLine(g, hx + dx * 5 - dy * .5, hy + dy * 5 + dx * .5, hx + dx * (len - 3) - dy * .5, hy + dy * (len - 3) + dx * .5, blade[blade.length - 1]);
+}
+function pClub(g, hx, hy, a, len) {
+  const [dx, dy] = dir(a);
+  pLimb(g, hx - dx * 2, hy - dy * 2, 1.1, hx + dx * len, hy + dy * len, 2.8, RAMPS.wood, { rough: .3 });
+  for (const t of [.55, .8]) pEll(g, hx + dx * len * t + dy * 2, hy + dy * len * t - dx * 2, .9, .9, RAMPS.steel);
+}
+function pBow(g, hx, hy, a, pull) {
+  const [dx, dy] = dir(a), px_ = -dy, py_ = dx, R = 11;
+  let prev = null;
+  for (let t = -1; t <= 1.001; t += .125) {
+    const bend = (1 - t * t) * 3.5, x = hx + px_ * t * R + dx * bend, y = hy + py_ * t * R + dy * bend;
+    if (prev) pLimb(g, prev[0], prev[1], 1, x, y, 1, RAMPS.wood);
+    prev = [x, y];
+  }
+  const sx = hx - dx * (pull || 0), sy = hy - dy * (pull || 0);
+  pLine(g, hx + px_ * R, hy + py_ * R, sx, sy, '#d8d0c0'); pLine(g, hx - px_ * R, hy - py_ * R, sx, sy, '#d8d0c0');
+  if (pull) { pLine(g, sx, sy, sx + dx * 16, sy + dy * 16, '#9a7a50'); pLimb(g, sx + dx * 15, sy + dy * 15, 1.2, sx + dx * 18, sy + dy * 18, .4, RAMPS.steel); }
+}
+// kite shield facing the viewer, with a cross
+function pKite(g, x, y, w, h, ramp, cross) {
+  pPoly(g, [[x, y], [x + w, y], [x + w, y + h * .55], [x + w / 2, y + h], [x, y + h * .55]], ramp, { n: null });
+  pPoly(g, [[x + 1.5, y + 1.5], [x + w - 1.5, y + 1.5], [x + w - 1.5, y + h * .55 - .5], [x + w / 2, y + h - 2.5], [x + 1.5, y + h * .55 - .5]], RAMPS[ramp === RAMPS.blue ? 'blue' : 'red'], { rim: false, lift: .15 });
+  if (cross) { pLimb(g, x + w / 2, y + 3, .9, x + w / 2, y + h - 5, .9, cross, { rim: false }); pLimb(g, x + 3, y + h * .35, .9, x + w - 3, y + h * .35, .9, cross, { rim: false }); }
+}
+
+// ----- the monsters -----
+const RIG = {};
+// crypt rat: big grey rat, pink tail and paws, red eye; lunges with its jaws open
+RIG.rat = (g, st, i, n) => {
+  const ph = i / n * Math.PI * 2, walk = st === 'walk', B = g.h - 1;
+  let bx = 24, by = 12, stretch = 0, hd = 0, mouth = 0, sw = walk ? Math.sin(ph) * 3.5 : 0;
+  if (st === 'idle') by += Math.sin(ph) * .4;
+  if (st === 'wind') { by += 1.5; bx -= 2; hd = 1.5; mouth = 1; }
+  if (st === 'act') { stretch = 3; bx += 2; by -= 1; mouth = 2; hd = -1; }
+  if (st === 'hurt') { bx -= 1.5; hd = -2; }
+  if (walk) by += Math.abs(Math.cos(ph)) * -.8;
+  // tail curls back and up, swaying
+  let tx = bx - 8, ty = by + 2, ta = 170;
+  for (let k = 0; k < 7; k++) { ta += 14 + Math.sin(ph + k * .6) * 6; const [dx, dy] = dir(ta + 180); const nx = tx - dx * 2.6, ny = ty + dy * -2.6 * -1; pLimb(g, tx, ty, 1.3 - k * .12, nx, ny + (k > 3 ? -1 : .4), 1.2 - k * .12, RAMPS.pink); tx = nx; ty = ny + (k > 3 ? -1 : .4); }
+  // far legs
+  pLimb(g, bx - 4, by + 3, 1.4, bx - 5 - sw, B - 1, 1, RAMPS.fur); pLimb(g, bx + 6, by + 3, 1.3, bx + 7 + sw - stretch, B - 1, 1, RAMPS.fur);
+  // body
+  pEll(g, bx, by, 9.5 + stretch, 6.2 - stretch * .3, RAMPS.fur, { rough: .35 });
+  for (let k = 0; k < 6; k++) pSet(g, bx - 6 + k * 2.4, by - 4 + (k % 2), RAMPS.fur[5]);
+  // near legs with pink paws
+  pLimb(g, bx - 3, by + 4, 1.8, bx - 3 + sw, B - 1.2, 1.1, RAMPS.fur); pLimb(g, bx - 3 + sw - 1, B - 1, .9, bx - 1 + sw, B - .5, .8, RAMPS.pink);
+  pLimb(g, bx + 7, by + 3, 1.6, bx + 8 - sw + stretch, B - 1.2, 1, RAMPS.fur); pLimb(g, bx + 7 - sw + stretch, B - 1, .9, bx + 9.5 - sw + stretch, B - .5, .8, RAMPS.pink);
+  // head and snout
+  const hx = bx + 10 + stretch, hy = by - 1 + hd;
+  pEll(g, hx, hy, 5.2, 4.6, RAMPS.fur, { rough: .3 });
+  pLimb(g, hx + 2, hy + .5 - mouth * .3, 3.2, hx + 8, hy + 1.5 - mouth * .4, 1.4, RAMPS.fur);
+  if (mouth) { pLimb(g, hx + 2, hy + 3, 1.4, hx + 7, hy + 3 + mouth, .8, RAMPS.fur); pLine(g, hx + 3, hy + 2.5 + mouth * .5, hx + 7, hy + 2.5 + mouth, '#3a0e10'); pSet(g, hx + 6, hy + 2 + mouth * .5, '#ece4cc'); pSet(g, hx + 5, hy + 3 + mouth, '#ece4cc'); }
+  pEll(g, hx + 8.6, hy + 1.2 - mouth * .4, 1.1, 1, RAMPS.pink);
+  // ear
+  pEll(g, hx - 1.5, hy - 4.5, 2.6, 3, RAMPS.pink); pEll(g, hx - 1.2, hy - 4.2, 1.2, 1.7, ['#5a2a2a', '#7a3e3c'], { rim: false });
+  if (st === 'hurt') pLine(g, hx + 2, hy - 1, hx + 4, hy - 1, OLC);
+  else { pEye(g, hx + 2.5, hy - 1.5, '#ff4030', '#a01810'); pSet(g, hx + 2.5, hy - 2.5, '#ffb0a0'); }
+  pLine(g, hx + 7, hy + 1, hx + 11, hy, '#6e6265');
+};
+// bone bat: pale furry body, wide leathery wings, red eyes; screeches, then dives
+RIG.bat = (g, st, i, n) => {
+  const cx = 20, cy = 12, flap = [-1, -.3, .7, .2][i % 4];
+  let up = st === 'act' ? .9 : st === 'wind' ? -1 : st === 'hurt' ? 1.2 : flap, fold = st === 'act' ? 1 : 0;
+  const wing = s => {
+    const sx = cx + s * 3, sy = cy - 2, tx = cx + s * (17 - fold * 8), ty = cy - 1 + up * 9 + fold * 4;
+    const mx = cx + s * (10 - fold * 4), my = cy - 4 + up * 6;
+    pPoly(g, [[sx, sy], [mx, my - 1], [tx, ty], [tx - s * 2, ty + 3], [cx + s * 12, cy + 3 + up * 5], [cx + s * 9, cy + 1 + up * 3], [cx + s * 6, cy + 4 + up * 2], [sx, cy + 3]], RAMPS.wing);
+    pLine(g, sx, sy, mx, my - 1, '#c8bcb0'); pLine(g, mx, my - 1, tx, ty, '#c8bcb0');
+    pLine(g, mx, my, cx + s * 9, cy + 1 + up * 3, '#4e4848'); pLine(g, mx, my, cx + s * 12, cy + 3 + up * 5, '#4e4848');
+    pSet(g, mx, my - 2, '#ece4cc');
+  };
+  wing(-1); wing(1);
+  pEll(g, cx, cy + 1, 4.2, 5, RAMPS.bone, { rough: .4 });
+  pLimb(g, cx - 1.5, cy + 5, .8, cx - 2, cy + 8, .6, RAMPS.pink); pLimb(g, cx + 1.5, cy + 5, .8, cx + 2, cy + 8, .6, RAMPS.pink);
+  pEll(g, cx + 1, cy - 4, 3.6, 3.2, RAMPS.bone);
+  pPoly(g, [[cx - 2.5, cy - 5], [cx - 3, cy - 10], [cx, cy - 6]], RAMPS.bone); pPoly(g, [[cx + 2, cy - 6], [cx + 4.5, cy - 10], [cx + 4.5, cy - 5]], RAMPS.bone);
+  pSet(g, cx - 2.2, cy - 7, '#cc8a7c'); pSet(g, cx + 3.8, cy - 7, '#cc8a7c');
+  pEye(g, cx, cy - 4.5, '#ff3020'); pEye(g, cx + 3, cy - 4.5, '#ff3020');
+  pEll(g, cx + 1.5, cy - 2, 1, .8, RAMPS.pink);
+  if (st === 'wind') { pEll(g, cx + 1.5, cy - 1.5, 1.2, 1.2, ['#2a0a0c', '#5a1a1a'], { rim: false }); pSet(g, cx + .8, cy - 2, '#ffffff'); pSet(g, cx + 2.2, cy - 2, '#ffffff'); }
+};
+// skeleton thrall: bones, a skull with dark sockets, rusty sword
+const skull = (g, x, y, hood) => {
+  pEll(g, x, y, 5.2, 4.8, RAMPS.bone);
+  pLimb(g, x + 1, y + 3.5, 2.6, x + 2.5, y + 5, 2.2, RAMPS.bone);
+  pEll(g, x + 1.8, y - .2, 1.4, 1.5, ['#0a0608'], { rim: false }); pEll(g, x + 4.4, y - .2, 1, 1.4, ['#0a0608'], { rim: false });
+  pSet(g, x + 1.8, y - .4, hood ? '#ffcc40' : '#c8402a'); pSet(g, x + 4.4, y - .4, hood ? '#ffcc40' : '#c8402a');
+  pSet(g, x + 3.2, y + 1.8, '#0a0608'); for (let k = 0; k < 4; k++) pSet(g, x + .5 + k * 1.1, y + 4.6, '#3e382e');
+};
+const SK_SW = { idle: 35, walk: 30, wind: -140, act: 10, rec: 55, hurt: 70 };
+RIG.thrall = (g, st, i, n) => {
+  const legs = st === 'walk' ? WALK4[i] : st === 'act' ? 'lunge' : st === 'wind' ? 'wide' : 'idle';
+  const sa = SK_SW[st], lean = st === 'act' ? 2 : st === 'wind' ? -1.5 : st === 'hurt' ? -2 : 0;
+  humanoid(g, {
+    x: 15, L1: 6, L2: 6, legR: .9, legRamp: RAMPS.bone, farRamp: RAMPS.bone.slice(0, 4), footRamp: RAMPS.bone, footL: 2.5, footR: 1.2, T: 11,
+    farArm: (g, S) => pArm(g, S.tx - 3, S.ty + 2, 100 + (st === 'walk' ? Math.sin(i * 1.57) * 20 : 0), 9, .8, RAMPS.bone.slice(0, 4)),
+    torso: (g, S) => {
+      pLimb(g, S.hx, S.hy - 1, 1.6, S.tx, S.ty, 1, RAMPS.bone);
+      pEll(g, S.hx, S.hy, 3, 1.8, RAMPS.bone);
+      pEll(g, S.tx + .5, S.ty + 4, 4, 4.4, RAMPS.bone);
+      for (let k = 0; k < 3; k++) pLine(g, S.tx - 3, S.ty + 2.5 + k * 2, S.tx + 4, S.ty + 2.5 + k * 2, '#3e382e');
+      pLine(g, S.tx + .5, S.ty + 1, S.tx + .5, S.ty + 8, '#6a6250');
+    },
+    head: (g, S) => skull(g, S.tx + 1, S.ty - 5),
+    arm: (g, S) => { const [hx, hy] = pArm(g, S.tx + 2, S.ty + 2, sa + 45, 7, .8, RAMPS.bone); pSword(g, hx, hy, sa, 15, RAMPS.rust, RAMPS.iron); }
+  }, { legs, lean });
+};
+// skull archer: a hooded skeleton with a longbow
+RIG.archer = (g, st, i, n) => {
+  const legs = st === 'walk' ? WALK4[i] : st === 'wind' || st === 'act' ? 'wide' : 'idle', pull = st === 'wind' ? 7 : 0;
+  humanoid(g, {
+    x: 13, L1: 6, L2: 6, legR: 1, legRamp: RAMPS.hood, farRamp: RAMPS.hood.slice(0, 3), footRamp: RAMPS.leath, footL: 2.5, footR: 1.3, T: 11,
+    back: (g, S) => { pPoly(g, [[S.tx - 4, S.ty - 2], [S.tx + 3, S.ty], [S.hx + 3, S.hy + 4], [S.hx - 7, S.hy + 6]], RAMPS.hood); pLimb(g, S.tx - 4, S.ty - 1, 1.2, S.tx - 6, S.ty + 9, 1.4, RAMPS.leath); for (let k = 0; k < 3; k++) pSet(g, S.tx - 4.5 + k, S.ty - 3, '#d8d0c0'); },
+    torso: (g, S) => { pPoly(g, [[S.tx - 4, S.ty], [S.tx + 4, S.ty], [S.hx + 4, S.hy + 2], [S.hx - 4.5, S.hy + 2]], RAMPS.hood); pLimb(g, S.hx - 4, S.hy - 1, .8, S.hx + 4, S.hy - 1, .8, RAMPS.leath, { rim: false }); },
+    head: (g, S) => { skull(g, S.tx + 1, S.ty - 5, true); pPoly(g, [[S.tx - 5, S.ty + 1], [S.tx - 5, S.ty - 7], [S.tx - 1, S.ty - 11], [S.tx + 4, S.ty - 10], [S.tx + 6, S.ty - 6], [S.tx + 1.5, S.ty - 7.5], [S.tx - .5, S.ty - 2], [S.tx - 1, S.ty + 1]], RAMPS.hood); },
+    arm: (g, S) => {
+      const ba = st === 'act' ? -8 : st === 'wind' ? -12 : 60;
+      const [hx, hy] = pArm(g, S.tx + 1, S.ty + 2, ba, 8, .9, RAMPS.hood, RAMPS.bone);
+      pBow(g, hx, hy, ba, pull);
+      if (pull) pArm(g, S.tx - 1, S.ty + 2, 170, 3, .8, RAMPS.hood, RAMPS.bone);
+    }
+  }, { legs, lean: st === 'hurt' ? -2 : 0 });
+};
+// grave spider: black body, red eyes, eight legs
+function spiderRig(g, st, i, n, o) {
+  const ph = i / n * Math.PI * 2, walk = st === 'walk' || st === 'idle', cx = o.cx, by = g.h - 1, cy = by - o.h;
+  const raise = st === 'wind' || o.stance ? 1 : 0, lunge = st === 'act' ? 2 : 0;
+  // legs splay out from the body: knee high and outward, foot far out on the ground; the front pair rears up in a stance
+  const legsAt = (side, ramp) => { for (let k = 0; k < 4; k++) {
+    const q = k - 1.5, sw = walk ? Math.sin(ph + k * 1.6 + side) * o.sw : 0, spread = o.sp * (side ? 1 : 1.25);
+    const sx = cx + q * 1.6 + (k > 1 ? lunge : 0), sy = cy - 1;
+    const rear = k === 3 && raise, fx = cx + q * spread * 2.3 + sw + (k > 1 ? lunge * 1.5 : 0) + (rear ? 3 : 0);
+    const kx = cx + q * spread * 1.5 + sw * .5 + (k > 1 ? lunge : 0), ky = cy - o.h * (side ? .75 : .6) - (rear ? o.h * .7 : 0);
+    const fy = rear ? cy - o.h * .9 : by - .5 - (side ? 1 : 0);
+    pLimb(g, sx, sy, o.lr, kx, ky, o.lr * .85, ramp); pLimb(g, kx, ky, o.lr * .85, fx, fy, o.lr * .35, ramp);
+  } };
+  legsAt(1.3, o.ramp.slice(0, -1));
+  pEll(g, cx - o.ab * .9 - lunge * .3, cy - o.h * .3, o.ab, o.ab * .85, o.ramp, { rough: .25 });
+  if (o.mark) o.mark(g, cx - o.ab * .9, cy - o.h * .3);
+  pEll(g, cx + o.hd * .6 + lunge, cy - o.h * .1, o.hd, o.hd * .8, o.ramp);
+  legsAt(0, o.ramp);
+  if (o.horns) { pLimb(g, cx + lunge, cy - o.hd * .6, 1.2, cx - 1 + lunge, cy - o.hd * 1.6, .4, RAMPS.gold); pLimb(g, cx + o.hd + lunge, cy - o.hd * .6, 1.2, cx + o.hd + 1 + lunge, cy - o.hd * 1.6, .4, RAMPS.gold); }
+  const ex = cx + o.hd * .9 + lunge, ey = cy - o.h * .2;
+  pEye(g, ex, ey, o.eye); pEye(g, ex + 2, ey, o.eye); pSet(g, ex + 1, ey + 1.5, o.eye2 || o.eye);
+  if (st === 'act' || st === 'wind') { pLimb(g, ex + 1, ey + 2, .7, ex + 2.5, ey + 4, .4, RAMPS.bone); pLimb(g, ex + 3, ey + 2, .7, ex + 4, ey + 4, .4, RAMPS.bone); }
+}
+RIG.spider = (g, st, i, n) => spiderRig(g, st, i, n, { cx: 18, h: 6, sp: 4, sw: 2, lr: .8, ab: 5.5, hd: 3.4, ramp: RAMPS.dark, eye: '#ff3020' });
+RIG.spiderW = (g, st, i, n) => spiderRig(g, st, i, n, { cx: 24, h: 10, sp: 5, sw: 2.5, lr: 1.2, ab: 9, hd: 5, ramp: RAMPS.dark, eye: '#ff3020', horns: true, stance: st === 'stance',
+  mark: (g, x, y) => { pLimb(g, x - 5, y + 1, .9, x - 1, y + 3, .9, RAMPS.purple, { rim: false }); pLimb(g, x - 1, y + 3, .9, x + 4, y + 1, .9, RAMPS.purple, { rim: false }); pLimb(g, x - 3, y - 3, .7, x + 2, y - 3, .7, RAMPS.purple, { rim: false }); } });
+RIG.queen = (g, st, i, n) => spiderRig(g, st, i, n, { cx: 38, h: 13, sp: 7, sw: 3, lr: 1.6, ab: 13, hd: 7, ramp: RAMPS.purple, eye: '#ffd040', eye2: '#f8a020',
+  mark: (g, x, y) => { pEll(g, x, y - 2, 3, 2, RAMPS.dark, { rim: false }); pEll(g, x - 6, y + 2, 2, 1.5, RAMPS.dark, { rim: false }); pEll(g, x + 5, y + 2, 2, 1.5, RAMPS.dark, { rim: false }); for (let k = 0; k < 3; k++) pSet(g, x - 4 + k * 4, y - 7, '#ffd040'); } });
+// spider egg: a pale sack with veins that pulses
+RIG.egg = (g, st, i) => {
+  const s = i % 2 ? .4 : 0;
+  pEll(g, 8, 8.5 - s, 6 + s, 6.8 + s, RAMPS.egg, { rough: .3 });
+  pLine(g, 5, 5, 7, 10, '#9a7a8a'); pLine(g, 10, 4, 11, 9, '#9a7a8a'); pSet(g, 6, 5, '#ffffff');
+};
+// slimes: a wobbling drop with two dark eyes and a bright shine
+const slimeRig = ramp => (g, st, i, n) => {
+  const ph = i / n * Math.PI * 2, B = g.h - 1;
+  let sx = 1 + Math.sin(ph) * .07, sy = 1 - Math.sin(ph) * .07;
+  if (st === 'wind') { sx = 1.22; sy = .72; } if (st === 'act') { sx = .8; sy = 1.2; } if (st === 'hurt') { sx = 1.15; sy = .85; }
+  const cx = 14, rx = 9 * sx, ry = 8 * sy, cy = B - ry;
+  pPoly(g, [[cx - rx * .35, cy - ry * .6], [cx + 1.5 * sx, cy - ry - 5 * sy], [cx + rx * .45, cy - ry * .5]], ramp, { rim: false });
+  pEll(g, cx, cy + .5, rx, ry, ramp);
+  pEll(g, cx - rx * .45, cy - ry * .35, 1.6, 1.1, [ramp[4]], { rim: false }); pSet(g, cx - rx * .2, cy - ry * .65, ramp[4]);
+  const ey = cy + ry * .1;
+  if (st === 'hurt') { pLine(g, cx - 3, ey, cx - 1, ey, OLC); pLine(g, cx + 3, ey, cx + 5, ey, OLC); }
+  else { pEll(g, cx - 2, ey, 1, 1.6, [OLC], { rim: false }); pEll(g, cx + 4, ey, 1, 1.6, [OLC], { rim: false }); pSet(g, cx - 2, ey - 1, '#ffffff'); pSet(g, cx + 4, ey - 1, '#ffffff'); }
+  pEll(g, cx, B - .5, rx * .9, 1, [ramp[0]], { rim: false });
+};
+// torch wisp: a living flame with a face; dims to cold ash when it can be hurt
+const wispRig = ramp => (g, st, i, n) => {
+  const ph = i / n * Math.PI * 2, cx = 12, by = 26, wob = Math.sin(ph) * 1.5, big = st === 'wind' ? 1.2 : 1;
+  pPoly(g, [[cx - 7 * big, by - 6], [cx - 5, by - 14 + wob], [cx - 2 + wob, by - 22 * big], [cx + 1, by - 16], [cx + 4 - wob, by - 26 * big], [cx + 5, by - 15], [cx + 8 * big, by - 9 - wob], [cx + 6, by - 2], [cx, by + 1], [cx - 5, by - 1]], ramp, { n: [0, 0] });
+  pEll(g, cx, by - 7, 6 * big, 6.5, ramp, { lift: .1 });
+  pPoly(g, [[cx - 3.5, by - 6], [cx - 1, by - 13 - wob], [cx + 1, by - 9], [cx + 3 + wob, by - 15], [cx + 4, by - 5], [cx, by - 2]], [ramp[3], ramp[4]], { rim: false, n: [0, 0] });
+  const eye = ramp === RAMPS.flame ? '#3a0a04' : '#141018';
+  pEll(g, cx - 1.5, by - 8, 1, 1.4, [eye], { rim: false }); pEll(g, cx + 2.5, by - 8, 1, 1.4, [eye], { rim: false });
+  if (st === 'act' || st === 'wind') pEll(g, cx + .5, by - 4.5, 1.6, 1.2, [eye], { rim: false });
+};
+// draugr shambler: a hulking green brute with pointed ears and a studded club
+RIG.shambler = (g, st, i, n) => {
+  const legs = st === 'walk' ? WALK4[i] : st === 'act' ? 'lunge' : st === 'wind' ? 'crouch' : 'wide';
+  const ca = { idle: 50, walk: 45, wind: -150, act: 25, rec: 70, hurt: 80 }[st];
+  humanoid(g, {
+    x: 15, L1: 5.5, L2: 5, legR: 1.8, legRamp: RAMPS.leath, farRamp: RAMPS.leath.slice(0, 3), footRamp: RAMPS.wood, footL: 3, footR: 1.8, T: 10,
+    farArm: (g, S) => pArm(g, S.tx - 4, S.ty + 2, 100 + (st === 'walk' ? Math.sin(i * 1.57) * 20 : 0), 9, 1.6, RAMPS.gskin.slice(0, 4)),
+    torso: (g, S) => {
+      pEll(g, S.tx, S.ty + 5.5, 6.5, 6.5, RAMPS.gskin, { rough: .2 });
+      pPoly(g, [[S.tx - 6, S.ty + 4], [S.tx + 5, S.ty + 3], [S.tx + 6.5, S.hy + 2], [S.tx + 3, S.hy + 3.5], [S.tx, S.hy + 2], [S.tx - 3, S.hy + 3.5], [S.tx - 6.5, S.hy + 2]], RAMPS.ember);
+      pLimb(g, S.tx - 6, S.hy - 1, 1, S.tx + 6, S.hy - 1.5, 1, RAMPS.leath, { rim: false }); pSet(g, S.tx + 1, S.hy - 1.5, '#e8b440');
+    },
+    head: (g, S) => {
+      const x = S.tx + 2, y = S.ty - 3;
+      pPoly(g, [[x - 3, y - 1], [x - 10, y - 5], [x - 3, y + 2]], RAMPS.gskin); pPoly(g, [[x + 3, y - 2], [x + 8, y - 7], [x + 5, y + 1]], RAMPS.gskin);
+      pEll(g, x, y, 5, 4.8, RAMPS.gskin);
+      pLimb(g, x + 1, y - 1.5, .6, x + 4.5, y - .5, .6, RAMPS.gskin.slice(0, 2), { rim: false });
+      pEye(g, x + 2, y, '#ffe040', '#f8a020'); pEye(g, x + 5, y, '#ffe040');
+      pLine(g, x + 1, y + 3, x + 5, y + 3, '#14260e'); pSet(g, x + 1.5, y + 2.2, '#ece4cc'); pSet(g, x + 4.5, y + 2.2, '#ece4cc');
+    },
+    arm: (g, S) => { const [hx, hy] = pArm(g, S.tx + 3, S.ty + 2, ca + 50, 7, 1.7, RAMPS.gskin); pClub(g, hx, hy, ca, 14); }
+  }, { legs, lean: st === 'act' ? 2.5 : st === 'wind' ? -2 : st === 'hurt' ? -2 : 0 });
+};
+// shieldbearer: a blue armored knight behind a tall kite shield with a gold cross
+const helm = (g, x, y, ramp, visor) => {
+  pEll(g, x, y, 5.4, 5.6, ramp);
+  pLimb(g, x - 5, y + 1, 1, x + 5, y + 1, 1, ramp, { rim: false, lift: .25 });
+  pLine(g, x, y + .5, x + 5, y + .5, OLC); pLine(g, x + 2.5, y + .5, x + 2.5, y + 4, OLC);
+  if (visor) pSet(g, x + 3.5, y + .5, visor);
+};
+RIG.shield = (g, st, i, n) => {
+  const legs = st === 'walk' ? WALK4[i] : st === 'act' ? 'lunge' : 'wide';
+  const sa = { idle: 100, walk: 95, wind: -130, act: 0, rec: 70, hurt: 120 }[st], push = st === 'act' ? 3 : st === 'wind' ? -1 : 0;
+  humanoid(g, {
+    x: 14, L1: 5.5, L2: 5.5, legR: 1.5, legRamp: RAMPS.steel, farRamp: RAMPS.steel.slice(0, 4), footRamp: RAMPS.iron, footL: 2.8, footR: 1.6, T: 10,
+    back: (g, S) => pPoly(g, [[S.tx - 3, S.ty], [S.tx + 2, S.ty], [S.hx - 2, S.hy + 6], [S.hx - 8, S.hy + 5]], RAMPS.blue),
+    farArm: (g, S) => { const [hx, hy] = pArm(g, S.tx - 2, S.ty + 2, sa + 20, 7, 1.3, RAMPS.steel.slice(0, 4)); pSword(g, hx, hy, sa, 13); },
+    torso: (g, S) => { pEll(g, S.tx, S.ty + 5, 5.5, 6, RAMPS.blue); pLimb(g, S.tx - 5, S.hy - 1, 1, S.tx + 5, S.hy - 1, 1, RAMPS.leath, { rim: false }); pEll(g, S.tx + 1, S.ty + 1.5, 4, 2.4, RAMPS.steel, { rim: false }); },
+    head: (g, S) => helm(g, S.tx + 1.5, S.ty - 3.5, RAMPS.steel, '#6ec8e8'),
+    arm: (g, S) => { pArm(g, S.tx + 3, S.ty + 2, 60, 5, 1.4, RAMPS.steel); pKite(g, S.tx + 3 + push, S.ty - 1, 11, 17, RAMPS.steel, RAMPS.gold); }
+  }, { legs, lean: push });
+};
+// the jarl: a goblin king in blue mail, gold crown, red cape, glowing eyes and a great sword
+RIG.jarl = (g, st, i, n) => {
+  const legs = st === 'walk' ? WALK4[i] : st === 'act' ? 'lunge' : st === 'wind' ? 'crouch' : 'wide';
+  const sa = { idle: -60, walk: -55, wind: -150, act: 15, rec: 50, hurt: 70, sleep: 80 }[st];
+  const flow = st === 'walk' ? Math.sin(i * 1.57) * 2 : 0;
+  humanoid(g, {
+    x: 22, L1: 7, L2: 7, legR: 2, legRamp: RAMPS.blue, farRamp: RAMPS.blue.slice(0, 4), footRamp: RAMPS.leath, footL: 3, footR: 2, T: 13,
+    back: (g, S) => pPoly(g, [[S.tx - 5, S.ty], [S.tx + 3, S.ty - 1], [S.hx - 2 - flow, S.base - 2], [S.hx - 9 - flow, S.base], [S.hx - 15 - flow * 2, S.base - 4]], RAMPS.red),
+    farArm: (g, S) => pArm(g, S.tx - 4, S.ty + 3, 110, 10, 2, RAMPS.gskin.slice(0, 4)),
+    torso: (g, S) => {
+      pEll(g, S.tx, S.ty + 7, 7.5, 8, RAMPS.blue);
+      for (let k = 0; k < 4; k++) pLine(g, S.tx - 6, S.ty + 4 + k * 3, S.tx + 6, S.ty + 4 + k * 3, '#1c2a4c');
+      pLimb(g, S.tx - 7, S.hy, 1.4, S.tx + 7, S.hy, 1.4, RAMPS.leath, { rim: false }); pEll(g, S.tx + 1, S.hy, 1.8, 1.6, RAMPS.gold);
+      pEll(g, S.tx - 4, S.ty + 1, 3.5, 2.6, RAMPS.gold); pEll(g, S.tx + 4.5, S.ty + 1, 3.5, 2.6, RAMPS.gold);
+    },
+    head: (g, S) => {
+      const x = S.tx + 2, y = S.ty - 4;
+      pPoly(g, [[x - 3, y], [x - 12, y - 4], [x - 4, y + 3]], RAMPS.gskin); pPoly(g, [[x + 4, y - 1], [x + 10, y - 6], [x + 6, y + 2]], RAMPS.gskin);
+      pEll(g, x, y, 6.2, 6, RAMPS.gskin);
+      pPoly(g, [[x - 6, y - 4], [x + 6, y - 4], [x + 7, y - 12], [x + 4, y - 8], [x + 1.5, y - 13], [x - 1, y - 8], [x - 4, y - 12], [x - 7, y - 8]], RAMPS.gold);
+      pSet(g, x + 1.5, y - 6, '#c8402a'); pSet(g, x - 3.5, y - 6, '#6ec8e8'); pSet(g, x + 5, y - 6, '#6ec8e8');
+      pEye(g, x + 2, y, '#7ff0ff', '#2ea0b8'); pEye(g, x + 5, y, '#7ff0ff');
+      pLine(g, x, y + 3.5, x + 5.5, y + 3.5, '#14260e'); pSet(g, x + 1, y + 2.6, '#ece4cc'); pSet(g, x + 4.5, y + 2.6, '#ece4cc');
+    },
+    arm: (g, S) => { const [hx, hy] = pArm(g, S.tx + 4, S.ty + 3, sa + 55, 8, 2, RAMPS.gskin); pSword(g, hx, hy, sa, 22, RAMPS.steel, RAMPS.gold); }
+  }, { legs, lean: st === 'act' ? 3 : st === 'wind' ? -2 : 0 });
+};
+// state name for an enemy this frame, and the frame to draw
+const ANIM = {};
+function buildAnims() {
+  const HUM = { idle: 2, walk: 4, wind: 1, act: 1, rec: 1, hurt: 1 };
+  ANIM.r = mkAnim(28, 11, 15, RIG.rat, { idle: 2, walk: 4, wind: 1, act: 1, hurt: 1 });
+  ANIM.b = mkAnim(20, 15, 10, RIG.bat, { idle: 4, wind: 1, act: 1, hurt: 1 });
+  ANIM.t = mkAnim(26, 20, 8, RIG.thrall, HUM);
+  ANIM.a = mkAnim(22, 20, 7, RIG.archer, HUM);
+  ANIM.s = mkAnim(18, 10, 9, RIG.spider, { idle: 2, walk: 4, wind: 1, act: 1, hurt: 1 });
+  ANIM.W = mkAnim(24, 15, 12, RIG.spiderW, { idle: 2, walk: 4, wind: 1, act: 1, hurt: 1, stance: 1 });
+  ANIM.Q = mkAnim(38, 18, 19, RIG.queen, { idle: 2, walk: 4, wind: 1, act: 1, hurt: 1 });
+  ANIM.o = mkAnim(8, 8, 4, RIG.egg, { idle: 2 });
+  for (const [ch, k] of [['e', 'slimeE'], ['g', 'slimeG'], ['u', 'slimeU'], ['v', 'slimeV']]) ANIM[ch] = mkAnim(14, 13, 7, slimeRig(RAMPS[k]), { idle: 4, wind: 1, act: 1, hurt: 1 });
+  ANIM.w = mkAnim(12, 15, 6, wispRig(RAMPS.flame), { idle: 4, wind: 1, act: 1, hurt: 1 });
+  ANIM.w.dim = mkAnim(12, 15, 6, wispRig(RAMPS.dim), { idle: 4 }).idle;
+  ANIM.h = mkAnim(28, 20, 8, RIG.shambler, HUM);
+  ANIM.k = mkAnim(24, 20, 7, RIG.shield, HUM);
+  ANIM.J = mkAnim(38, 28, 11, RIG.jarl, Object.assign({ sleep: 1 }, HUM));
+}
+function enemyFrame(e) {
+  const A = ANIM[e.ch];
+  if (!A) return e.spr;
+  let st = 'idle';
+  if (e.ch === 'w' && e.vuln) return A.dim[((e.t / 6) | 0) % A.dim.length];
+  if (e.atk === W_STANCE && e.st === 'act') st = 'stance';
+  else if (e.st === 'wind') st = 'wind';
+  else if (e.st === 'act') st = 'act';
+  else if (e.st === 'rec') st = A.rec ? 'rec' : 'idle';
+  else if (e.st === 'stag' || e.st === 'gbrk' || e.dazed) st = 'hurt';
+  else if (e.st === 'sleep') st = A.sleep ? 'sleep' : 'idle';
+  else if (A.walk && e.grav && Math.abs(e.vx) > .2) st = 'walk';
+  const fr = A[st] || A.idle, sp = st === 'walk' ? 7 : A.idle.length > 2 ? 6 : 24;
+  return fr[((e.t / sp) | 0) % fr.length];
+}
+// items and props in the same style
+function buildItemArt() {
+  const one = (gw, gh, fn) => { const g = pg(gw, gh); fn(g); return pSprite(g); };
+  // XP shard: a cyan crystal
+  SPR.coin = one(8, 8, g => { pPoly(g, [[8, 1], [12.5, 6], [8, 15], [3.5, 6]], RAMPS.crystal); pLine(g, 8, 2, 8, 13, RAMPS.crystal[4]); pPoly(g, [[8, 1], [12.5, 6], [8, 7]], [RAMPS.crystal[3]], { rim: false }); pSet(g, 6, 5, '#ffffff'); });
+  // flask: round red potion with a cork
+  SPR.potion = one(8, 8, g => { pEll(g, 8, 10, 6, 5.4, RAMPS.potion); pLimb(g, 8, 2.5, 1.8, 8, 5, 1.8, RAMPS.glass); pEll(g, 8, 1.8, 2, 1.2, RAMPS.wood); pEll(g, 5.5, 8.5, 1.2, 1.6, ['#ffd0c8'], { rim: false }); });
+  SPR.heart = one(7, 7, g => { pEll(g, 4.5, 5, 3.4, 3.4, RAMPS.potion); pEll(g, 9.5, 5, 3.4, 3.4, RAMPS.potion); pPoly(g, [[1.4, 6], [12.6, 6], [7, 13]], RAMPS.potion, { rim: false, n: [.2, .4] }); pSet(g, 3, 3.5, '#ffd0c8'); });
+  SPR.heartE = one(7, 7, g => { pEll(g, 4.5, 5, 3.4, 3.4, RAMPS.fur); pEll(g, 9.5, 5, 3.4, 3.4, RAMPS.fur); pPoly(g, [[1.4, 6], [12.6, 6], [7, 13]], RAMPS.fur, { rim: false, n: [.2, .4] }); });
+  // spike trap: an iron plate with four steel points
+  SPR.spikes = one(16, 9, g => {
+    for (let k = 0; k < 4; k++) { const x = 4 + k * 8; pPoly(g, [[x - 2.6, 13], [x, 1 + (k % 2)], [x + 2.6, 13]], RAMPS.steel, { n: [.1, -.3] }); pLine(g, x - .5, 3 + (k % 2), x - 1.5, 12, RAMPS.steel[5]); }
+    pLimb(g, 1.5, 14.5, 2, 30.5, 14.5, 2, RAMPS.iron); for (let x = 4; x < 32; x += 8) pSet(g, x, 14, '#8a7a6a');
+  });
+  // torch and bonfire flames (two frames)
+  SPR.flame = one(7, 9, g => { pPoly(g, [[1, 13], [2, 7], [4, 4], [5, 0], [7, 5], [9, 2], [10, 8], [13, 12], [11, 17], [3, 17]], RAMPS.flame, { n: [.35, .3] }); pEll(g, 7, 13, 2.6, 3.4, [RAMPS.flame[3], RAMPS.flame[4]], { rim: false }); });
+  SPR.flame2 = one(7, 9, g => { pPoly(g, [[1, 12], [3, 6], [6, 3], [7, 0], [9, 4], [10, 2], [12, 8], [13, 12], [11, 17], [3, 17]], RAMPS.flame, { n: [.35, .3] }); pEll(g, 7, 13, 2.4, 3.6, [RAMPS.flame[3], RAMPS.flame[4]], { rim: false }); });
+}
+buildAnims(); buildItemArt();
+
 // ================= Hero sprites (body parts + held gear) =================
 // The hero is built each frame from parts: head (class), torso (armor), legs (pose), front arm, weapon, shield.
 // All parts are text grids facing right. Torso letters: A armor dark, a armor light, C class cloth.
@@ -1473,6 +2022,53 @@ const ARMOR_COL = { leather: ['N', 'n'], cloak: ['M', 'm'], hide: ['n', 'P'], ch
 const CLASS_COL = { knight: 'B', berserker: 'r', rogue: 'p' };
 const WPN_TINT = { thrallblade: { w: 'g', S: 'm', y: 'M' }, draugr: { w: 'e', S: 't', y: 'T' }, forgeaxe: { s: 'o', w: 'y', S: 'r' }, emberdaggers: { w: 'y', s: 'o' },
   bonesword: { S: 'g', y: 'w' }, runeblade: { w: 'b', S: 'B', y: 'e' }, beardaxe: { s: 'g', S: 'm' }, skullsplitter: { s: 'r', w: 'o', S: 'N' }, frostfang: { w: 'e', s: 'b' } };
+// ----- painted hero body (head, cape, armor torso, posed legs); arm, weapon and shield are added in paintHero -----
+const hexOf = c => '#' + c.map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+// a 5 step ramp between a dark and a light palette color
+function rampOf(dk, lt) { const a = hexRGB(dk), b = hexRGB(lt); return [a.map(v => v * .55), a, a.map((v, i) => (v + b[i]) / 2), b, b.map(v => v + (255 - v) * .3)].map(hexOf); }
+const SKIN = ['#4a2a1c', '#7a4a30', '#a86e4a', '#d09a6e', '#ecc49a'];
+const CAPE = { knight: RAMPS.red, berserker: RAMPS.leath, rogue: RAMPS.hood };
+const HEADS = {
+  knight: (g, x, y) => { helm(g, x, y, RAMPS.steel); pLimb(g, x - 1, y - 5, 1.4, x - 6, y - 8, .8, RAMPS.red); pLimb(g, x - 3, y - 6, 1.2, x - 8, y - 6, .6, RAMPS.red); },
+  berserker: (g, x, y) => {
+    pEll(g, x, y + .5, 5, 5.2, SKIN);
+    pLimb(g, x - 3, y + 3, 2.6, x + 2, y + 5.5, 2, RAMPS.wood, { rough: .4 }); pEll(g, x + 3, y + 4.5, 1.6, 1.4, RAMPS.wood);
+    pEll(g, x, y - 2.5, 5.6, 3.4, RAMPS.iron); pLimb(g, x - 5.5, y - 1, .9, x + 5.5, y - 1, .9, RAMPS.iron, { lift: .3 });
+    pLimb(g, x - 4, y - 4, 1.6, x - 7, y - 10, .5, RAMPS.bone); pLimb(g, x + 3, y - 4.5, 1.4, x + 5.5, y - 9.5, .5, RAMPS.bone);
+    pEye(g, x + 3, y + .5, '#140c10'); pSet(g, x + 3, y - .3, '#ecc49a');
+  },
+  rogue: (g, x, y) => {
+    pPoly(g, [[x - 6, y + 5], [x - 6.5, y - 2], [x - 2, y - 7], [x + 3, y - 6.5], [x + 6, y - 2], [x + 6, y + 5]], RAMPS.hood);
+    pEll(g, x + 2.5, y + 1, 3.4, 3.8, ['#06040a', '#0e0a14'], { rim: false });
+    pEye(g, x + 2.5, y + .5, '#d8f4ff'); pEye(g, x + 4.6, y + .5, '#d8f4ff');
+    pLimb(g, x + .5, y + 3.5, 1.2, x + 5.5, y + 3.5, 1, RAMPS.cloth.slice(0, 3), { rim: false });
+  }
+};
+const HBODY = {};
+function heroBody(cls, arm, legs, lean) {
+  const key = cls + arm + legs + lean;
+  if (HBODY[key]) return HBODY[key];
+  const ac = ARMOR_COL[arm] || ARMOR_COL.chain, AR = rampOf(PAL[ac[0]], PAL[ac[1]]), cape = CAPE[cls] || RAMPS.red;
+  const flow = legs === 'walk2' || legs === 'walk4' ? 1.5 : legs === 'jump' ? -2 : legs === 'tuck' ? 0 : -.5;
+  const g = pg(48, 36);
+  const S = humanoid(g, {
+    x: 47, L1: 6, L2: 6.5, legR: 1.6, legRamp: AR, farRamp: AR.slice(0, 4), footRamp: RAMPS.leath, footL: 2.8, footR: 1.7, T: 11,
+    back: (g, S) => {
+      const long = cls === 'berserker' ? 5 : 0;
+      pPoly(g, [[S.tx - 2, S.ty], [S.tx + 3, S.ty + 1], [S.hx - 2, S.hy + 5 - long], [S.hx - 6 - flow, S.base - 3 - long], [S.hx - 12 - flow * 2, S.base - 6 - long], [S.tx - 6, S.ty + 4]], cape);
+      pLine(g, S.tx - 3, S.ty + 4, S.hx - 9 - flow * 1.5, S.base - 6 - long, cape[0]);
+    },
+    torso: (g, S) => {
+      pPoly(g, [[S.tx - 5, S.ty], [S.tx + 5, S.ty], [S.hx + 5.5, S.hy + 2], [S.hx - 5.5, S.hy + 2]], AR);
+      pEll(g, S.tx + .5, S.ty + 4, 4.6, 4.4, AR, { rim: false, lift: .08 });
+      pLimb(g, S.hx - 5, S.hy - .5, 1.1, S.hx + 5, S.hy - .5, 1.1, RAMPS.leath, { rim: false }); pEll(g, S.hx + 1.5, S.hy - .5, 1.3, 1.1, RAMPS.gold, { rim: false });
+      pEll(g, S.tx - 3, S.ty + 1, 3, 2.2, AR);
+    },
+    head: (g, S) => HEADS[cls](g, S.tx + 1, S.ty - 5)
+  }, { legs, lean });
+  const c = pCanvas(g);
+  return HBODY[key] = { c, sx: (S.tx + 3) / RES, sy: (S.ty + 3) / RES, tx: S.tx / RES, ty: S.ty / RES };
+}
 const HSPR = {}; // lazy cache of built part sprites
 function hspr(key, src) { return HSPR[key] || (HSPR[key] = mkSprite(src)); }
 const HB = document.createElement('canvas'); HB.width = 48 * RES; HB.height = 40 * RES;
@@ -1484,19 +2080,15 @@ function paintHero(o) {
   hb.clearRect(0, 0, 48, 40);
   const wid = o.w, wt = ITEMS[wid].type, wg = HERO.wpn[wt], wsp = hspr('w_' + wid, recolor(wg.g, WPN_TINT[wid] || {}));
   const ac = ARMOR_COL[o.a] || ARMOR_COL.chain;
-  const torso = hspr('t_' + o.a + o.cls, recolor(HERO.torso, { A: ac[0], a: ac[1], C: CLASS_COL[o.cls] }));
-  const head = hspr('h_' + o.cls, HERO.head[o.cls]), legs = hspr('l_' + o.legs, HERO.legs[o.legs]);
   const shd = o.s !== 'none' ? hspr('s_' + o.s, HERO.shd[o.s]) : null;
-  const ux = HOX - 8 + (o.lean || 0), uy = HOY - 16 + (o.bob || 0); // upper body grid origin
+  const B = heroBody(o.cls, o.a, o.legs, Math.round((o.lean || 0) * 2)), ux = B.tx - 8, uy = B.ty - 1; // upper body origin
   const drawW = (sp, p, hx, hy, ang) => { hb.save(); hb.translate(hx, hy); hb.rotate(ang * Math.PI / 180); hdraw(sp, -p[0], -p[1]); hb.restore(); };
   // back hand: second dagger, shield on the far arm
-  if (wt === 'dagger') drawW(wsp, wg.p, ux + 4, uy + 9, o.block ? -60 : 20);
-  if (shd && !o.block) hdraw(shd, ux + 4 - (shd.w >> 1), uy + 6);
-  hdraw(legs, HOX - 8, HOY - legs.h);
-  hdraw(torso, ux, uy + 6);
-  hdraw(head, ux, uy);
+  if (wt === 'dagger') drawW(wsp, wg.p, ux + 7, uy + 5, o.block ? -60 : 20);
+  if (shd && !o.block) hdraw(shd, ux + 6 - (shd.w >> 1), uy + 2);
+  hb.drawImage(B.c, 0, 0, 48, 36);
   // front arm from shoulder to hand, weapon in hand
-  const a = o.A * Math.PI / 180, sx = ux + 9, sy = uy + 7, r = 4 + (o.reach || 0);
+  const a = o.A * Math.PI / 180, sx = B.sx, sy = B.sy, r = 4 + (o.reach || 0);
   const hx = Math.round(sx + Math.cos(a) * r), hy = Math.round(sy + Math.sin(a) * r);
   if (!o.block || !shd) drawW(wsp, wg.p, hx, hy, o.A);
   // arm: dark sleeve outline, armor color, a light fine stripe on top, then the glove
@@ -1504,7 +2096,7 @@ function paintHero(o) {
   arm(PAL.k, -1, 2.5); arm(PAL[ac[0]], -.5, 1.5); arm(shadeHex(PAL[ac[0]], 1.25), -.5, .5);
   hb.fillStyle = PAL.k; hb.fillRect(hx - 1.5, hy - 1.5, 3, 3);
   hb.fillStyle = PAL.N; hb.fillRect(hx - 1, hy - 1, 2, 2); hb.fillStyle = PAL.n; hb.fillRect(hx - 1, hy - 1, 1.5, .5);
-  if (o.block && shd) { drawW(wsp, wg.p, sx - 2, sy + 2, -60); hdraw(shd, ux + 11, uy + 4); }
+  if (o.block && shd) { drawW(wsp, wg.p, sx - 2, sy + 2, -60); hdraw(shd, ux + 12, uy + 1); }
   if (o.tint) { hb.globalCompositeOperation = 'source-atop'; hb.fillStyle = o.tint === 'r' ? '#ff3a2a' : '#ffffff'; hb.fillRect(0, 0, 48, 40); hb.globalCompositeOperation = 'source-over'; }
   return HB;
 }
@@ -1988,7 +2580,7 @@ function burstPixels(px, w, x0, y0, sc, fl, cx, cy, life = 1) {
   }
 }
 function shatter(e) {
-  const s = e.spr, sc = e.small ? .6 : e.sc || 1, cx = e.x + e.w / 2, by = e.y + e.h + 1;
+  const s = e.lastSpr || e.spr, sc = e.small ? .6 : e.sc || 1, cx = e.x + e.w / 2, by = e.y + e.h + 1;
   burstPixels(sprPixels(s), s.w, cx - ((s.bb.x0 + s.bb.x1) / 2) * sc, by - s.bb.y1 * sc, sc, e.face < 0, cx, e.y + e.h / 2);
 }
 
@@ -2665,6 +3257,13 @@ function updateEnemy(e) {
 function updateWorld() {
   updatePlayer();
   if (state !== 'play') return;
+  // spike traps: stepping on the points hurts and throws you up; a roll does not help, jump over them
+  if (P.spikeT > 0) P.spikeT--;
+  else if (P.state !== 'dead' && P.vy >= 0) for (const k of SPAWNS.spikes) if (overlap(P, k)) {
+    P.spikeT = 45; damagePlayer(Math.round(maxHP() * .12) + 4, P.x + P.w / 2 + (P.vx >= 0 ? 4 : -4), .8, true);
+    if (state !== 'play') return;
+    P.vy = -3.4; spark(P.x + P.w / 2, k.y + 2, '#e8dcc0', 6); break;
+  }
   tickMobFx();
   const viewC = camX + W / 2;
   for (const e of enemies) {
@@ -3262,9 +3861,9 @@ function drawWorld() {
   drawScene(sx);
   if (arenaLocked) {
     const gx = ARENA_X - camX;
-    ctx.fillStyle = '#22161a'; ctx.fillRect(gx, 16, 16, 128);
-    ctx.fillStyle = '#4a5260'; for (let i = 2; i < 16; i += 5) ctx.fillRect(gx + i, 16, 2, 128);
-    ctx.fillStyle = '#8a96a8'; for (let y = 24; y < 144; y += 24) ctx.fillRect(gx, y, 16, 2);
+    ctx.fillStyle = 'rgba(6,5,8,.7)'; ctx.fillRect(gx, 16, 16, 128);
+    for (let i = 1; i < 16; i += 4) { ctx.fillStyle = '#16120e'; ctx.fillRect(gx + i, 16, 2.5, 128); ctx.fillStyle = '#4a3a2e'; ctx.fillRect(gx + i, 16, 1.5, 128); ctx.fillStyle = '#7a6250'; ctx.fillRect(gx + i, 16, FP, 128); }
+    for (let y = 24; y < 144; y += 24) { ctx.fillStyle = '#16120e'; ctx.fillRect(gx, y, 16, 2.5); ctx.fillStyle = '#5a4636'; ctx.fillRect(gx, y, 16, 1.5); ctx.fillStyle = '#7a6250'; ctx.fillRect(gx, y, 16, FP); }
   }
   const lights = [];
   for (const t of SPAWNS.torches) if (t.x > camX - 90 && t.x < camX + W + 90) {
@@ -3350,14 +3949,14 @@ function drawWorld() {
     }
     lights.push({ x: h.x + 8 - camX, y: h.y, r: 22, c: h.kind === 'poison' ? 'rgba(120,220,80,.12)' : 'rgba(255,120,40,.15)' });
   }
+  // spike traps
+  for (const k of SPAWNS.spikes) if (k.x > camX - 20 && k.x < camX + W + 4) blit(SPR.spikes, k.x - 1 - camX, k.y + 6 - SPR.spikes.h);
   // enemies
   for (const e of enemies) {
     if (e.dead || e.x < camX - 40 || e.x > camX + W + 40) continue;
     const cx = e.x + e.w / 2, by = e.y + e.h + 1;
-    let spr = e.spr, tint = enemyTint(e), ox = 0, oy = 0;
-    if (e.ch === 'b' && !e.dazed && ((e.t / 8) | 0) % 2) spr = SPR.bat2;
-    if (e.ch === 'w' && e.vuln) spr = SPR.wispDim;
-    if (e.grav && !e.small && e.onGround && Math.abs(e.vx) > .2 && 'rthakJWQ'.includes(e.ch)) spr = legFrames(spr)[((e.t / 8) | 0) % 2];
+    let spr = enemyFrame(e), tint = enemyTint(e), ox = 0, oy = 0;
+    e.lastSpr = spr; // painted frame: idle, walk, wind-up, strike, hurt
     if (e.st === 'bones') { // a flat heap of its own bones; shakes before it rises
       drawSprScaled(spr, cx + (e.t2 < 60 ? rnd(-1, 1) : 0), by, e.face, e.flash > 0 && e.flash % 4 < 2 ? 'w' : false, e.sc || 1, (e.sc || 1) * .3);
       continue;
@@ -3368,7 +3967,7 @@ function drawWorld() {
     }
     if (e.st === 'wind' && e.atk && e.t2 < 14) ox = rnd(-1, 1);
     if (e.st === 'stag' || e.st === 'gbrk') ox = Math.sin(e.t) > 0 ? 1 : -1;
-    if (e.grav && Math.abs(e.vx) > .2 && ((e.t / 12) | 0) % 2) oy -= 1;
+    if (!ANIM[e.ch] && e.grav && Math.abs(e.vx) > .2 && ((e.t / 12) | 0) % 2) oy -= 1;
     if (!tint && e.tr && e.tr.length) spr = tinted(spr, TRAITS[e.tr[0]].col);
     let [qx, qy] = enemyScale(e), sc = e.small ? .6 : e.sc || 1;
     if (e.atk === V_POP && e.st === 'wind') { const g = 1 + .5 * (1 - e.t2 / Math.max(1, Math.round(V_POP.wind * e.spd))); qx *= g; qy *= g; }
@@ -3865,7 +4464,7 @@ function render() {
       drawTextS('AREA CLEAR', W / 2, 40, '#f2c14e', 3, 'center');
       drawTextS('NEXT: AREA ' + (levelIdx + 2), W / 2, 72, '#d8c8b8', 1, 'center');
       drawTextS(nx.name, W / 2, 81, '#f4ead6', 2, 'center');
-      drawSpr(SPR[ETYPES[nx.mob].spr], W / 2, 124 + Math.round(Math.sin(frameN * .1) * 2), -1, false, 0, 0, 0);
+      drawSpr(ANIM[nx.mob] ? ANIM[nx.mob].walk ? ANIM[nx.mob].walk[((frameN / 7) | 0) % 4] : ANIM[nx.mob].idle[((frameN / 8) | 0) % ANIM[nx.mob].idle.length] : SPR[ETYPES[nx.mob].spr], W / 2, 124 + Math.round(Math.sin(frameN * .1) * 2), -1, false, 0, 0, 0);
       if (clearT > 50 && ((frameN / 30) | 0) % 2 === 0) drawTextS(isTouchUI() ? 'TAP TO GO ON' : 'PRESS ANY BUTTON', W / 2, 140, '#f4ead6', 1, 'center');
     }
     if (fadeT > 0) { ctx.fillStyle = `rgba(10,4,8,${fadeT / 30})`; ctx.fillRect(0, 0, W, H); }

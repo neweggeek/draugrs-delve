@@ -57,6 +57,7 @@
 - Odd generated floors run right to left (bonfire on the right, exit on the left).
 - Every 10th floor is a Jarl hall with a traited Jarl. The first Jarl gives the win screen and fireball, later ones lead on.
 - Generated mobs never spawn in a dip or next to a pillar (they used to get stuck).
+- Spike traps (`^`): iron plates with steel points on the floor. Stepping on them costs 12% max HP + 4, staggers you and throws you up. Rolling does not help: jump over. One tile wide, two tiles past floor 30. In areas 3, 6, 8 and on generated floors.
 
 ## Ending and New Game+
 - Floor 100's Jarl shows the ending: hero, play time, deaths, gear found.
@@ -87,7 +88,8 @@
 - Hits: hitstop, screen shake, sparks, damage numbers. Enemies flash white on hit.
 - Enemies squash on wind-up, stretch on the strike, squash on landing and when hit.
 - Dead enemies break into their own sprite pixels, which bounce on the floor.
-- Walking enemies step with a two-frame leg cycle; idle ones breathe.
+- Look follows the concept art (`docs/concept/`): cold mossy stone, deep arches with portcullises, pillars, hanging chains, stone slab ledges.
+- Monsters, items and the hero body are painted from shapes (`RIG`, `pEll`/`pLimb`/`pPoly`) with shaded color ramps and dark outlines. Each monster has idle, walk (4 frames), wind-up, strike, recovery and hurt frames; the hero has a posed walk cycle, cape and class head (knight helm, horned berserker, hooded rogue).
 - The hero also breaks into pixels on death. Areas fade in from black on load and respawn.
 - Hero kicks up dust on jump, landing and roll.
 - Below 25% HP: red screen edges throb with a heartbeat sound.
