@@ -1507,8 +1507,34 @@ for (const id in ITEM_RES) ITEMS[id].res = ITEM_RES[id];
 // gear(id) is the item with its upgrade applied; use it for every stat read.
 const MAX_UP = 10, GEAR = {};
 const upLv = id => (CH && CH.up && CH.up[id]) || 0;
+// Durability: weapon, shield and armor wear down with use. CH.dur[id] runs 100 to 0 (missing = 100).
+// Under 30 the item is DAMAGED (stats x0.85), at 0 BROKEN (stats x0.5) until repaired at a bonfire.
+const WEARS = { w: 1, s: 1, a: 1 };
+const USES = { w: [220, 300, 400, 550], s: [90, 130, 180, 250], a: [70, 100, 140, 200] }; // hits to wear out, by rarity
+const DUR_MUL = [1, .85, .5], DUR_NAME = ['', 'DAMAGED', 'BROKEN'];
+const wears = id => ITEMS[id] && WEARS[ITEMS[id].slot] && EMPTY[ITEMS[id].slot] !== id;
+const durOf = id => { const d = CH && CH.dur && CH.dur[id]; return d == null ? 100 : d; };
+const durTier = id => !wears(id) ? 0 : durOf(id) <= 0 ? 2 : durOf(id) < 30 ? 1 : 0;
+function wear(id, amt = 1) {
+  if (!CH || !wears(id)) return;
+  const it = ITEMS[id], was = durTier(id);
+  CH.dur[id] = Math.max(0, durOf(id) - 100 * amt / USES[it.slot][it.rar]);
+  const now = durTier(id);
+  if (now > was && P) { ftext(P.x + P.w / 2, P.y - 16, it.name + (now === 2 ? ' BROKE!' : ' IS DAMAGED'), now === 2 ? '#e8574a' : '#f2a860'); sfx(now === 2 ? 'gbreak' : 'err'); }
+}
+const fixDur = id => { if (CH && CH.dur) delete CH.dur[id]; };
+// repair everything you carry: dust first, then 4 XP for each dust you lack
+const repairCost = () => [...new Set(CH.inv)].filter(wears).reduce((c, id) => c + Math.ceil((100 - durOf(id)) * (ITEMS[id].rar + 1) / 8), 0);
+function repairPay(c) { const d = Math.min(CH.dust, c); return { d, xp: (c - d) * 4 }; }
+function repairAll() {
+  const c = repairCost();
+  if (!c) { sfx('err'); menu.msg = 'NOTHING TO REPAIR'; menu.msgT = 90; return; }
+  const p = repairPay(c);
+  if (CH.xp < p.xp) { sfx('err'); menu.msg = 'NEED ' + c + ' DUST OR MORE XP'; menu.msgT = 90; return; }
+  CH.dust -= p.d; CH.xp -= p.xp; CH.dur = {}; sfx('levelup'); menu.msg = 'GEAR REPAIRED'; menu.msgT = 100; save();
+}
 function gear(id) {
-  const n = upLv(id), key = id + '|' + n;
+  const n = upLv(id), dt = durTier(id), key = id + '|' + n + '|' + dt;
   if (GEAR[key]) return GEAR[key];
   const it = ITEMS[id], g = Object.assign({}, it), m = 1 + .08 * n;
   if (n) {
@@ -1518,6 +1544,12 @@ function gear(id) {
     if (it.slot === 'a') g.def = Math.min(.6, it.def + .012 * n);
     if (it.b) { g.b = {}; const add = it.slot === 'r' || it.slot === 'n' ? (n + 1) >> 1 : (n / 3) | 0; for (const k in it.b) g.b[k] = it.b[k] + add; }
     if (it.fx) { g.fx = {}; for (const k in it.fx) g.fx[k] = Math.round(it.fx[k] * m); }
+  }
+  if (dt) {
+    const q = DUR_MUL[dt];
+    if (it.slot === 'w') { g.l = Math.max(1, Math.round(g.l * q)); g.h = Math.max(1, Math.round(g.h * q)); }
+    if (it.slot === 's') { g.absorb *= q; g.stab = Math.round(g.stab * q); }
+    if (it.slot === 'a') g.def *= q;
   }
   return GEAR[key] = g;
 }
@@ -1559,7 +1591,7 @@ const canCook = k => Object.entries(MEALS[k].need).every(([p, c]) => (CH.bag[p] 
 let CH = null, SAVE = null;
 function newChar(cls) {
   const c = CLASSES[cls];
-  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null, ng: 0, deaths: 0, time: 0, up: {}, dust: 0 };
+  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null, ng: 0, deaths: 0, time: 0, up: {}, dust: 0, dur: {} };
 }
 function save() { try { localStorage.setItem('dd2', JSON.stringify(CH)); SAVE = CH; } catch (e) {} }
 // old saves (before rings, amulets and DEX) are filled in with defaults
@@ -1567,7 +1599,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem('dd2') || 
   s.bag = s.bag || {}; s.meal = MEALS[s.meal] ? s.meal : null;
   if (s.beat) s.unlocked = Math.max(s.unlocked, 11); // saves from before floors 11 to 100 stopped at 10
   if (s.dex == null) s.dex = CLASSES[s.cls].dex;
-  s.cp = s.cp ?? -1; s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0; s.up = s.up || {}; s.dust = s.dust || 0;
+  s.cp = s.cp ?? -1; s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0; s.up = s.up || {}; s.dust = s.dust || 0; s.dur = s.dur || {};
   for (const k in EMPTY) if (!ITEMS[s.eq[k]]) s.eq[k] = EMPTY[k];
   s.inv = s.inv.filter(id => ITEMS[id]); return s; } } catch (e) {} return null; }
 SAVE = loadSave();
@@ -1893,7 +1925,7 @@ function resolveHit0(src, o) {
       ftext(scx, src.y - 8, 'PARRY!', '#f2c14e'); spark(pcx + P.face * 6, P.y + 6, '#fff2c0', 10); sfx('parry'); hitstop = 8; shake = 3;
       return 'parry';
     }
-    P.stam -= o.dmg * (100 - sh.stab) / 28; P.stamDelay = 45;
+    P.stam -= o.dmg * (100 - sh.stab) / 28; P.stamDelay = 45; wear(CH.eq.s, 1 + o.dmg / 25);
     const chip = o.dmg * (1 - sh.absorb);
     if (P.stam <= 0) {
       P.stam = 0; P.state = 'gbreak'; P.t = 50; P.blocking = false; P.vx = -P.face * 1.6;
@@ -1905,7 +1937,7 @@ function resolveHit0(src, o) {
     P.vx = -P.face * 1.1 * (o.kb || 1); spark(pcx + P.face * 6, P.y + 6, '#e8dcc0', 5); sfx('block');
     return 'block';
   }
-  damagePlayer(o.dmg * (1 - ARM().def), scx, o.kb || 1, !o.noStagger);
+  damagePlayer(o.dmg * (1 - ARM().def), scx, o.kb || 1, !o.noStagger); wear(CH.eq.a);
   if (o.web && P.state !== 'dead') { P.webT = 150; ftext(pcx, P.y - 12, 'WEBBED', '#e8e8e8'); }
   return 'hit';
 }
@@ -2049,6 +2081,7 @@ function updatePlayer() {
 function hitEnemy(e, heavy, spell) {
   const w = WPN(), pcx = spell ? spell.x : P.x + P.w / 2, ecx = e.x + e.w / 2;
   const frontal = (pcx - ecx) * e.face > 0;
+  if (!spell) wear(CH.eq.w, heavy ? 1.5 : 1);
   if (spell && e.ch === 'k' && frontal && e.st !== 'stag' && e.st !== 'gbrk') { ftext(ecx, e.y - 8, 'BLOCKED', '#a8a8b0'); sfx('clang'); spark(ecx + e.face * 6, e.y + 8, '#f08030', 6); return; }
   if (e.ch === 'k' && frontal && e.st !== 'stag' && e.st !== 'gbrk') {
     if (heavy) { e.st = 'gbrk'; e.t2 = 90; e.atk = null; ftext(ecx, e.y - 8, 'GUARD BREAK', '#f2c14e'); sfx('gbreak'); spark(ecx + e.face * 5, e.y + 8, '#6ec8e8', 10); hitstop = 6; return; }
@@ -2656,7 +2689,7 @@ function restShrine() {
 const freshItems = new Set(); // found since the bag was last looked at
 function gainItem(id) {
   const it = ITEMS[id], dup = CH.inv.includes(id);
-  CH.inv.push(id); freshItems.add(id);
+  CH.inv.push(id); freshItems.add(id); fixDur(id); // a fresh copy is in full repair
   const tail = overloaded() ? 'TOO HEAVY! SALVAGE IN THE BAG' : dup ? 'A COPY: COMBINE OR SALVAGE IT' : isTouchUI() ? 'TAP BAG TO EQUIP' : 'PRESS I TO EQUIP';
   popup = { lines: [RAR[it.rar].name + ': ' + it.name, itemLine(id) + (it.b && it.slot !== 'r' && it.slot !== 'n' ? '  ' + bonusLine(id) : ''), tail], col: RAR[it.rar].c, id, t: 260 };
   sfx(it.rar >= 2 ? 'levelup' : 'potion'); spark(P.x + P.w / 2, P.y, RAR[it.rar].c, 14); save();
@@ -2692,7 +2725,7 @@ function openBonfire(title) {
   if (typeof title === 'string') fireTitle = title;
   menu = { kind: 'bonfire', title: fireTitle, sel: 0, items: [
     { label: 'LEVEL UP', act: openLevelUp }, { label: 'INVENTORY', act: () => openBag(openBonfire) }, { label: 'STATS', act: () => openStats(openBonfire) },
-    { label: 'COOK', act: openCook }, { label: 'LEAVE', act: closeMenu }], back: closeMenu };
+    { label: 'COOK', act: openCook }, { label: 'REPAIR', repair: true, act: repairAll }, { label: 'LEAVE', act: closeMenu }], back: closeMenu };
   state = 'menu';
 }
 function closeMenu() { menu = null; state = 'play'; clearLatches(); for (const o of [keys, touch, mouse]) for (const k in o) o[k] = false; }
@@ -2746,7 +2779,7 @@ const isWorn = id => CH.eq[ITEMS[id].slot] === id;
 // an item you can give away: not your only worn copy
 const spare = id => !isWorn(id) || copies(id) > 1;
 function bagMsg(t, err) { menu.msg = t; menu.msgT = 110; sfx(err ? 'err' : 'pick'); }
-function takeOne(id) { CH.inv.splice(CH.inv.indexOf(id), 1); if (!CH.inv.includes(id)) delete CH.up[id]; }
+function takeOne(id) { CH.inv.splice(CH.inv.indexOf(id), 1); if (!CH.inv.includes(id)) { delete CH.up[id]; fixDur(id); } }
 function refreshBag(keep) { menu.list = bagList(); const j = menu.list.indexOf(keep); menu.sel = j >= 0 ? j : clamp(menu.sel, 0, Math.max(0, menu.list.length - 1)); }
 // Salvage: break an item into rune dust. Asks once before it breaks anything.
 function salvage(id) {
@@ -2767,7 +2800,7 @@ function combine(into, id) {
   menu.comb = null;
   if (!canMelt(into, id)) return bagMsg(id === into ? 'NEED A SECOND COPY' : ITEMS[id].slot !== ITEMS[into].slot ? 'MUST BE THE SAME KIND' : 'TAKE IT OFF FIRST', true);
   const gain = 1 + (upLv(id) >> 1);
-  takeOne(id); CH.up[into] = Math.min(MAX_UP, upLv(into) + gain);
+  takeOne(id); CH.up[into] = Math.min(MAX_UP, upLv(into) + gain); fixDur(into);
   refreshBag(into); bagMsg(gear(into).name + '!'); sfx('levelup'); save();
   if (P) { P.hp = Math.min(P.hp, maxHP()); P.stam = Math.min(P.stam, maxST()); }
 }
@@ -2795,7 +2828,7 @@ function temper(sl) {
   const id = CH.eq[sl], c = temperCost(id);
   if (upLv(id) >= MAX_UP) { sfx('err'); menu.msg = 'ALREADY +' + MAX_UP; menu.msgT = 90; return; }
   if (CH.dust < c) { sfx('err'); menu.msg = 'NEED ' + c + ' DUST'; menu.msgT = 90; return; }
-  CH.dust -= c; CH.up[id] = upLv(id) + 1; menu.msg = gear(id).name + '!'; menu.msgT = 120; sfx('levelup'); save();
+  CH.dust -= c; CH.up[id] = upLv(id) + 1; fixDur(id); menu.msg = gear(id).name + '!'; menu.msgT = 120; sfx('levelup'); save();
 }
 // Controls screen: shown once when a new game starts, and from the pause menu.
 const HELP_KEYS = [['MOVE', 'A D OR ARROWS'], ['JUMP', 'SPACE OR W'], ['ATTACK', 'J OR LEFT CLICK. HOLD FOR HEAVY'], ['BLOCK', 'K OR RIGHT CLICK. LATE BLOCK PARRIES'],
@@ -3228,6 +3261,7 @@ function drawHUD() {
   drawTextS('XP ' + CH.xp, hx, 19, '#f2c14e');
   let sy = 30;
   if (CH.meal) { drawTextS('FED: ' + MEALS[CH.meal].name, 6, sy, '#f2a860'); sy += 8; }
+  for (const sl of ['w', 's', 'a']) { const t = durTier(CH.eq[sl]); if (t) { drawTextS(SLOT_NAME[sl] + ' ' + DUR_NAME[t] + (t === 2 ? '! REPAIR AT A BONFIRE' : ''), 6, sy, t === 2 && frameN % 60 >= 40 ? '#a8443a' : t === 2 ? '#e8574a' : '#f2a860'); sy += 8; } }
   if (overloaded()) { drawTextS('OVERLOADED ' + Math.round(carryKg()) + '/' + carryMax() + ' KG', 6, sy, frameN % 60 < 40 ? '#e8574a' : '#a8443a'); sy += 8; }
   // status meters filling up, and effects that are on
   let sx = 6;
@@ -3344,9 +3378,9 @@ function drawMenu() {
   } else if (m.kind === 'altar') {
     drawTextS('RUNE DUST ' + CH.dust + '   SALVAGE GEAR IN THE BAG FOR MORE', W / 2, 26, '#c88ae8', 1, 'center');
   }
-  const al = m.kind === 'altar';
+  const al = m.kind === 'altar', bf = m.kind === 'bonfire';
   m.items.forEach((it, i) => {
-    const ck = m.kind === 'cook', y = al ? 36 + i * 15 : 38 + i * (m.kind === 'level' ? 20 : 22), sel = i === m.sel, h = al ? 13 : ck && it.meal ? 20 : 16;
+    const ck = m.kind === 'cook', y = al ? 36 + i * 15 : 38 + i * (m.kind === 'level' ? 20 : bf ? 18 : 22), sel = i === m.sel, h = al ? 13 : ck && it.meal ? 20 : bf ? 15 : 16;
     let label = it.label;
     if (it.stat) {
       const k = it.stat, g = gearBonus(k);
@@ -3354,6 +3388,11 @@ function drawMenu() {
     }
     if (it.meal) label = (CH.meal === it.meal ? 'EATEN: ' : '') + it.label + '   ' + needText(it.meal);
     let col = it.meal && !canCook(it.meal) ? '#6a5a5a' : null;
+    if (it.repair) {
+      const c = repairCost(), p = repairPay(c);
+      label = !c ? 'REPAIR   ALL GEAR IS SOUND' : 'REPAIR GEAR   ' + (p.d ? p.d + ' DUST' : '') + (p.d && p.xp ? ' + ' : '') + (p.xp ? p.xp + ' XP' : '');
+      col = !c || CH.xp < p.xp ? '#6a5a5a' : durTier(CH.eq.w) || durTier(CH.eq.s) || durTier(CH.eq.a) ? '#f2a860' : null;
+    }
     if (it.cost) {
       const id = it.temper && CH.eq[it.temper], maxed = id && upLv(id) >= MAX_UP;
       label = it.temper ? 'TEMPER ' + gear(id).name + (maxed ? '   MAX' : '   ' + it.cost() + ' DUST') : it.label + '   ' + it.cost() + ' DUST';
@@ -3362,7 +3401,7 @@ function drawMenu() {
     uiButton(label, x, y, w, h, sel, () => { m.sel = i; it.act(); }, col, it.meal ? 4 : undefined);
     if (it.meal) drawText(MEALS[it.meal].desc, W / 2, y + 12, canCook(it.meal) ? '#8fd6c3' : '#5a6a66', 1, 'center');
   });
-  if (m.msgT > 0) drawTextS(m.msg, W / 2, m.kind === 'cook' ? 148 : al ? 152 : 140, '#f2c14e', 1, 'center');
+  if (m.msgT > 0) drawTextS(m.msg, W / 2, m.kind === 'cook' ? 148 : al || bf ? 151 : 140, '#f2c14e', 1, 'center');
   drawText(isTouchUI() ? 'TAP TO CHOOSE   BLOCK: BACK' : 'W S: CHOOSE   ENTER: OK   ESC: BACK', W / 2, 160, '#8a7a6a', 1, 'center');
 }
 function statEffect(k) { return k === 'vit' ? 'HP ' + maxHP() : k === 'end' ? 'STAMINA ' + maxST() : k === 'str' ? 'DMG X' + dmgMult().toFixed(2) + ' LOAD ' + carryMax() : 'CRIT ' + Math.round(critChance() * 100) + '%'; }
@@ -3378,6 +3417,7 @@ function itemTip(id) {
   const bl = it.slot !== 'r' && it.slot !== 'n' ? bonusLine(id) : ''; if (bl) out.push([bl, '#7fe08a']);
   const fl = fxLine(id); if (fl) out.push([fl, '#ff9a8a']);
   const cl = cmpLine(id); if (cl) out.push(cl);
+  if (wears(id)) { const t = durTier(id); out.push(['DURABILITY ' + Math.ceil(durOf(id)) + '%' + (t ? '  ' + DUR_NAME[t] + ': STATS X' + DUR_MUL[t] + '. REPAIR AT A BONFIRE' : ''), t === 2 ? '#e8574a' : t ? '#f2a860' : '#b8a596']); }
   out.push(['WEIGHT ' + it.kg + ' KG   SALVAGE ' + salvageDust(id) + ' DUST' + (upLv(id) < MAX_UP ? '' : '   MAX +' + MAX_UP), '#b8a0c8']);
   return out;
 }
@@ -3402,6 +3442,14 @@ function drawTip(lines, px, py) {
   ctx.fillStyle = lines[0][1]; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h);
   lines.forEach(([t, c], i) => drawText(t, x + 4, y + 3 + i * 8, c));
 }
+// thin durability bar along the bottom of a bag cell (only once it has worn)
+function durBar(id, x, y) {
+  if (!wears(id) || durOf(id) >= 100) return;
+  const d = durOf(id), t = durTier(id);
+  ctx.fillStyle = '#1a1014'; ctx.fillRect(x + 2, y + 17, 16, 2);
+  ctx.fillStyle = t === 2 ? '#e8574a' : t ? '#f2a860' : '#7fe08a'; ctx.fillRect(x + 2, y + 17, Math.max(1, Math.round(16 * d / 100)), 2);
+  if (t === 2) drawText('!', x + 17, y + 2, '#e8574a', 1, 'right');
+}
 function drawBag(m) {
   const list = m.list, sel = list[m.sel], over = overloaded();
   let hov = null;
@@ -3415,6 +3463,7 @@ function drawBag(m) {
     cellBox(cx, y, 20, id === sel ? '#f2c14e' : RAR[ITEMS[id].rar].c, 'rgba(30,20,24,.9)');
     gearIconC(id, cx + 10, y + 10);
     if (upLv(id)) drawText('+' + upLv(id), cx + 19, y + 14, '#f2c14e', 1, 'right');
+    durBar(id, cx, y);
     drawText(SLOT_NAME[sl], cx + 10, y + 22, '#8a7a6a', 1, 'center');
     if (inCell(cx, y) && EMPTY[sl] !== id) hov = id;
     uiRects.push({ x: cx, y, w: 20, h: 20, fn: () => { const j = list.indexOf(id); if (j >= 0) { m.sel = j; bagPick(j); } } });
@@ -3434,6 +3483,7 @@ function drawBag(m) {
     ctx.globalAlpha = 1;
     if (worn) drawText('E', cx + 2, cy + 2, '#7fe08a');
     if (upLv(id)) drawText('+' + upLv(id), cx + 19, cy + 14, '#f2c14e', 1, 'right');
+    durBar(id, cx, cy);
     if (freshItems.has(id)) { ctx.fillStyle = '#f2c14e'; ctx.fillRect(cx + 16, cy + 2, 2, 2); }
     if (inCell(cx, cy)) hov = id;
     uiRects.push({ x: cx, y: cy, w: 20, h: 20, fn: () => { if (m.sel === i || !isTouchUI() || m.comb) { m.sel = i; bagPick(i); } else { m.sel = i; m.salv = null; } } });

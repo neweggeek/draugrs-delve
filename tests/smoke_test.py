@@ -328,6 +328,16 @@ async def main():
         n = await ev("(() => { const e = makeEnemy('w', 30, 4); addFx(e, 'burn', 500); const s = makeEnemy('s', 30, 4); addFx(s, 'frost', 200); return [hasFx(e, 'burn'), hasFx(s, 'frost')]; })()")
         check("wisps shrug off burn, spiders freeze", n == [False, True], str(n))
         check("old save gets crafting fields", await ev("""(() => { const c = newChar('knight'); delete c.up; delete c.dust; localStorage.setItem('dd2', JSON.stringify(c)); const s = loadSave(); return s.dust === 0 && typeof s.up === 'object'; })()"""))
+        # durability: wear, damaged / broken penalty, repair at the bonfire
+        await ev("__dd.newGame('knight', 0)")
+        n = await ev("(() => { const l0 = WPN().l; for (let i = 0; i < 160; i++) wear('sword'); const d1 = durOf('sword'), l1 = WPN().l, t1 = durTier('sword'); for (let i = 0; i < 100; i++) wear('sword'); return [l0, d1 < 30 && d1 > 0, l1 < l0, t1, durTier('sword'), WPN().l]; })()")
+        check("weapon wears down, gets damaged, then breaks", n[1] and n[2] and n[3] == 1 and n[4] == 2 and n[5] == round(n[0] * .5), str(n))
+        n = await ev("(() => { const d0 = durOf('chain'); __dd.tp(__dd.P.x); resolveHit({ x: __dd.P.x + 20, w: 4, isEnemy: true }, { dmg: 5 }); return [d0, durOf('chain')]; })()")
+        check("taking a hit wears armor", n[1] < n[0], str(n))
+        await ev("__dd.rest(); __dd.CH.dust = 5; __dd.CH.xp = 1000")
+        n = await ev("(() => { const c = repairCost(), p = repairPay(c); __dd.menu.items.find(i => i.repair).act(); return [c, p.d, p.xp, durOf('sword'), durOf('chain'), __dd.CH.dust, __dd.CH.xp]; })()")
+        check("bonfire repairs all gear, dust first then XP", n[0] > 5 and n[1] == 5 and n[3] == 100 and n[4] == 100 and n[5] == 0 and n[6] == 1000 - n[2], str(n))
+        check("old save gets durability field", await ev("""(() => { const c = newChar('knight'); delete c.dur; localStorage.setItem('dd2', JSON.stringify(c)); const s = loadSave(); return typeof s.dur === 'object'; })()"""))
         check("walk cycle has 4 distinct frames", await ev("new Set([1,2,3,4].map(i => HERO.legs['walk' + i])).size === 4"))
         # weighty combat, longer areas, rest shrines, more music
         await ev("__dd.newGame('knight',0); for (const e of __dd.enemies) e.dead = true; __dd.tp(300, 130)"); await pg.wait_for_timeout(300)
