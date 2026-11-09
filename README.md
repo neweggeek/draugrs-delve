@@ -20,8 +20,10 @@ Keep the `docs/music` folder next to it for the title music (without it the game
 | Rest at bonfire, open chest | E | USE |
 | Drop through ledge | S | |
 | Pause / sound | Esc / M | sound button |
+| Switch 3D / 2D view | V | 2D / 3D button |
 
 ## Features
+- 3D view: the dungeon is drawn in 3D with WebGL (blocks with depth, torch light, a camera looking down the hall), while the sprites stay pixel art. Press V or tap the 2D / 3D button for the classic flat view. Falls back to 2D if the browser has no WebGL.
 - Stamina-based combat: light and heavy attacks, block, parry and riposte, roll with i-frames, guard break.
 - Ten areas, one enemy type each: rats, bats, thralls, archers, spiders, slimes, wisps, shamblers, shieldbearers, the Jarl.
 - Bonfires: rest to heal, refill flasks, level up and change gear. Resting brings monsters back.

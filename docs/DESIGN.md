@@ -34,6 +34,9 @@
 - Level cost = 60 + 25 L + 3 L squared XP.
 - Chest gear: Bat-Wing Cloak (area 2), Thrall Blade (3), Iron Kite Shield (5), Ember Daggers (6), Forge Axe (7), Draugr Mail (8). Boss: Sword of the Draugr.
 
+## View
+- 3D by default: tiles extruded in depth, back wall far behind, off-axis camera above the action so floors and ledge tops show. Sprites stay flat pixel art at z = 0. V or the 2D / 3D button switches to the flat view.
+
 ## Music
 - Title: "dungeon_music_preview.mp3" streamed from `docs/music`. Falls back to generated music if the file is missing (single-file artifact).
 - Areas: generated live. Seeded chord walk per area (key, mode, tempo, filter), a motif that mutates each phrase, drone, pad, bells, drips, echo.
