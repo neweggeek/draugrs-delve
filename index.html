@@ -24,7 +24,8 @@ body.is-touch:not(.portrait) .touch,body.is-touch:not(.portrait) #bUse{opacity:.
 #mute{position:fixed;z-index:3;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));width:44px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 #view{position:fixed;z-index:3;top:calc(10px + env(safe-area-inset-top));right:calc(62px + env(safe-area-inset-right));width:44px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;font:700 13px ui-monospace,monospace;padding:0;cursor:pointer}
 #bag{position:fixed;z-index:3;display:none;top:calc(10px + env(safe-area-inset-top));right:calc(114px + env(safe-area-inset-right));width:52px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;font:700 13px ui-monospace,monospace;padding:0;cursor:pointer}
-body.in-play #bag{display:block}
+#menuB{position:fixed;z-index:3;display:none;top:calc(10px + env(safe-area-inset-top));right:calc(174px + env(safe-area-inset-right));width:58px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;font:700 13px ui-monospace,monospace;padding:0;cursor:pointer}
+body.in-play #bag,body.in-play #menuB{display:block}
 #rot{position:fixed;left:0;right:0;text-align:center;color:#b8a596;font:12px ui-monospace,monospace;display:none}
 body.is-touch.portrait #rot{display:block}
 </style>
@@ -48,13 +49,14 @@ body.is-touch.portrait #rot{display:block}
 </div>
 <button class="btn" id="bUse" aria-label="Use">USE</button>
 <button id="bag" aria-label="Open inventory">BAG</button>
+<button id="menuB" aria-label="Pause menu">MENU</button>
 <button id="view" aria-label="Switch between 3D and 2D view">2D</button>
 <button id="mute" aria-label="Toggle sound"><svg id="mIcon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" stroke="none"/><path id="mWave" d="M16 8c1.5 1.5 1.5 6.5 0 8M19 5c3 3 3 11 0 14"/><path id="mX" d="M16 9l6 6M22 9l-6 6" style="display:none"/></svg></button>
 <script>
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V8 2026-11-09 100 FLOORS';
+const VERSION = 'V9 2026-11-09 COMPLETE';
 const W = 320, H = 176, TS = 16;
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -72,7 +74,7 @@ const FONT = {
   '4':'101101111001001','5':'111100111001111','6':'111100111101111','7':'111001001001001','8':'111101111101111',
   '9':'111101111001111','!':'010010010000010',':':'000010000010000','.':'000000000000010','+':'000010111010000',
   '-':'000000111000000',"'":'010010000000000',',':'000000000010100','/':'001001010100100','?':'110001010000010',
-  '%':'101001010100101'
+  '%':'101001010100101','<':'001010100010001','>':'100010001010100'
 };
 function textW(s, sc = 1) { return s.length * 4 * sc - sc; }
 function drawText(s, x, y, col, sc = 1, align = 'left') {
@@ -448,6 +450,7 @@ function genFloor(n) {
   const theme = pick(themes), low = theme === 'barrow';
   const w = Math.min(64, 40 + (n / 6 | 0) * 2), ops = [], mods = {};
   let chest = false;
+  const busy = new Set(); // dip and pillar columns: no ground mob spawns there (they got stuck)
   for (let x = 7; x < w - 3; x += ri(6, 9)) ops.push(['T', x, low ? 4 : 3]);
   // chunks: ledge (maybe with a second tier), stairs up to a high perch, a dip with shards, a stone pillar, a chest nook
   for (let x = 9; x < w - 10;) {
@@ -458,8 +461,8 @@ function genFloor(n) {
     } else if (r < .47 && !low && x + 9 < w - 6) {
       used = 9; ops.push(['=', x, 7, 3], ['=', x + 3, 5, 3], ['=', x + 6, 3, 3], ['c', x + 6, 2, 3]);
       if (R() < .5) ops.push(['p', x + 7, 2]);
-    } else if (r < .62) { used = ri(2, 3); ops.push(['.', x, 9, used], ['c', x, 9, used]); }
-    else if (r < .77) { used = 1; ops.push(['#', x, 7, 1, 2], ['c', x, 6]); }
+    } else if (r < .62) { used = ri(2, 3); ops.push(['.', x, 9, used], ['c', x, 9, used]); for (let i = 0; i < used; i++) busy.add(x + i); }
+    else if (r < .77) { used = 1; ops.push(['#', x, 7, 1, 2], ['c', x, 6]); busy.add(x); }
     else if (r < .87 && !chest) { used = 3; chest = true; ops.push(['=', x, 7, 3], ['G', x + 1, 8]); }
     else used = 2;
     x += used + ri(2, 4);
@@ -468,7 +471,9 @@ function genFloor(n) {
   const pool = BODIES.slice(0, Math.min(9, 3 + (n / 4 | 0))), count = Math.min(14, 5 + (n / 9 | 0)), stepX = (w - 19) / count;
   const p1 = Math.min(.75, .2 + (n - 10) * .008), p2 = n > 40 ? Math.min(.4, (n - 40) * .008) : 0;
   for (let i = 0; i < count; i++) {
-    const ch = pick(pool), x = Math.round(11 + i * stepX + R()), y = ch === 'b' || ch === 'w' ? ri(2, 5) : ch === 's' ? (low ? 3 : 1) : 8;
+    const ch = pick(pool), y = ch === 'b' || ch === 'w' ? ri(2, 5) : ch === 's' ? (low ? 3 : 1) : 8;
+    let x = Math.round(11 + i * stepX + R());
+    for (let k = 0; y === 8 && k < 8 && x < w - 6 && (busy.has(x - 1) || busy.has(x) || busy.has(x + 1)); k++) x++;
     ops.push([ch, x, y]);
     const tr = [];
     if (n >= 14 && R() < .1) { tr.push('elite', pick(TRAIT_KEYS)); let t2 = pick(TRAIT_KEYS); while (t2 === tr[1]) t2 = pick(TRAIT_KEYS); tr.push(t2); }
@@ -1387,7 +1392,7 @@ const canCook = k => Object.entries(MEALS[k].need).every(([p, c]) => (CH.bag[p] 
 let CH = null, SAVE = null;
 function newChar(cls) {
   const c = CLASSES[cls];
-  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null };
+  return { cls, vit: c.vit, end: c.end, str: c.str, dex: c.dex, lvl: 1, xp: 0, inv: [c.eq.w, c.eq.s, c.eq.a], eq: Object.assign({ r: 'noring', n: 'noamulet' }, c.eq), unlocked: 1, opened: {}, drop: null, flaskMax: 3, beat: false, bag: {}, meal: null, ng: 0, deaths: 0, time: 0 };
 }
 function save() { try { localStorage.setItem('dd2', JSON.stringify(CH)); SAVE = CH; } catch (e) {} }
 // old saves (before rings, amulets and DEX) are filled in with defaults
@@ -1395,6 +1400,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem('dd2') || 
   s.bag = s.bag || {}; s.meal = MEALS[s.meal] ? s.meal : null;
   if (s.beat) s.unlocked = Math.max(s.unlocked, 11); // saves from before floors 11 to 100 stopped at 10
   if (s.dex == null) s.dex = CLASSES[s.cls].dex;
+  s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0;
   for (const k in EMPTY) if (!ITEMS[s.eq[k]]) s.eq[k] = EMPTY[k];
   s.inv = s.inv.filter(id => ITEMS[id]); return s; } } catch (e) {} return null; }
 SAVE = loadSave();
@@ -1425,9 +1431,9 @@ addEventListener('keydown', e => {
   if (document.body.classList.contains('is-touch') && !e.repeat) { document.body.classList.remove('is-touch'); resize(); }
   if (e.code === 'KeyM' && !e.repeat) { initAudio(); setMuted(!muted); return; }
   if (e.code === 'KeyV' && !e.repeat) { V3.set(!V3.on); return; }
-  if (e.metaKey || e.ctrlKey) return;
+  if (e.metaKey || e.ctrlKey || /^(Shift|Alt|Control|Meta)/.test(e.code) && state !== 'play') return;
   initAudio();
-  if (state !== 'play') { if (UIKEY[e.code] || e.code.startsWith('Key')) e.preventDefault(); if (!e.repeat) uiKey(UIKEY[e.code] || 'any'); return; }
+  if (state !== 'play') { if (UIKEY[e.code] || e.code.startsWith('Key')) e.preventDefault(); if (!e.repeat) { const u = UIKEY[e.code]; uiKey(e.shiftKey && (u === 'left' || u === 'right') ? (u === 'left' ? 'l10' : 'r10') : u || 'any'); } return; }
   if (e.code === 'Escape' && !e.repeat) { openPause(); return; }
   if (e.code === 'KeyI' && !e.repeat) { openBag(); return; }
   const k = KEYMAP[e.code];
@@ -1479,6 +1485,9 @@ document.getElementById('mute').addEventListener('pointerdown', e => e.stopPropa
 { const bg = document.getElementById('bag');
   bg.addEventListener('click', e => { e.stopPropagation(); initAudio(); if (state === 'play') openBag(); bg.blur(); });
   bg.addEventListener('pointerdown', e => e.stopPropagation()); }
+{ const mb = document.getElementById('menuB');
+  mb.addEventListener('click', e => { e.stopPropagation(); initAudio(); if (state === 'play') openPause(); mb.blur(); });
+  mb.addEventListener('pointerdown', e => e.stopPropagation()); }
 { const vb = document.getElementById('view');
   if (!V3.ok) vb.style.display = 'none';
   vb.addEventListener('click', e => { e.stopPropagation(); V3.set(!V3.on); vb.blur(); });
@@ -1489,15 +1498,16 @@ function pollPad() {
   const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(g => g) : null;
   if (!gp) { for (const k in pad) pad[k] = false; return; }
   const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, b = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
-  const now = { left: ax < -0.4 || b(14), right: ax > 0.4 || b(15), up: ay < -0.5 || b(12), down: ay > 0.5 || b(13), jump: b(0), roll: b(1), atk: b(2), heal: b(3), block: b(4) || b(6) || b(7), fire: b(5), use: b(12), ok: b(0) || b(9), back: b(1) };
+  const now = { left: ax < -0.4 || b(14), right: ax > 0.4 || b(15), up: ay < -0.5 || b(12), down: ay > 0.5 || b(13), jump: b(0), roll: b(1), atk: b(2), heal: b(3), block: b(4) || b(6) || b(7), fire: b(5), use: b(12), ok: b(0) || b(9), back: b(1), sel: b(8), l10: b(4), r10: b(5) };
   const edge = k => now[k] && !prevPad[k];
   if (state === 'play') {
     pad.left = now.left; pad.right = now.right; pad.jump = now.jump; pad.atk = now.atk; pad.block = now.block; pad.roll = now.roll; pad.down = now.down;
     for (const k of ['jump', 'atk', 'roll', 'heal', 'use', 'down', 'fire']) if (edge(k)) latch[k] = true;
     if (edge('ok') && b(9)) openPause();
+    else if (edge('sel')) openBag();
   } else {
     for (const k in pad) pad[k] = false;
-    for (const k of ['up', 'down', 'left', 'right', 'ok', 'back']) if (edge(k)) { initAudio(); uiKey(k); }
+    for (const k of ['up', 'down', 'left', 'right', 'ok', 'back', 'l10', 'r10']) if (edge(k)) { initAudio(); uiKey(k); }
   }
   Object.assign(prevPad, now);
 }
@@ -1555,8 +1565,10 @@ function makeEnemy(ch, tx, ty, extra) {
   return e;
 }
 // Deeper floors scale enemy HP, XP and damage. Floors 1 to 10 stay as designed.
-const floorHp = () => levelIdx < 10 ? 1 : 1 + (levelIdx - 9) * .035;
-const floorDmg = () => levelIdx < 10 ? 1 : 1 + (levelIdx - 9) * .018;
+// New Game+ (after floor 100): every foe gets more HP (and XP) and hits harder, per cycle.
+const ngLv = () => (CH && CH.ng) || 0;
+const floorHp = () => (levelIdx < 10 ? 1 : 1 + (levelIdx - 9) * .035) * (1 + ngLv() * .6);
+const floorDmg = () => (levelIdx < 10 ? 1 : 1 + (levelIdx - 9) * .018) * (1 + ngLv() * .4);
 function applyTraits(e, tr) {
   e.tr = tr || [];
   let hp = floorHp(), xp = hp, dm = floorDmg(), po = 1;
@@ -1659,7 +1671,7 @@ function die() {
   if (state === 'dead') return;
   paintHero(heroPose()); const cx = P.x + P.w / 2, fl = P.face < 0;
   burstPixels(canvasPixels(HB, 48, 40), 48, cx - (fl ? 48 - HOX : HOX), P.y + P.h + 1 - HOY, 1, fl, cx, P.y + 8, 2);
-  P.hp = 0; P.state = 'dead'; state = 'dead'; deadT = 0; sfx('died'); shake = 6;
+  P.hp = 0; P.state = 'dead'; state = 'dead'; deadT = 0; CH.deaths = (CH.deaths || 0) + 1; sfx('died'); shake = 6;
   puff(cx, P.y + 7, '#6ec8e8', 20, 2);
 }
 function startAttack(heavy) {
@@ -2215,6 +2227,23 @@ function equipItem(id) {
   if (P) { P.hp = Math.min(P.hp, maxHP()); P.stam = Math.min(P.stam, maxST()); }
   save();
 }
+// Controls screen: shown once when a new game starts, and from the pause menu.
+const HELP_KEYS = [['MOVE', 'A D OR ARROWS'], ['JUMP', 'SPACE OR W'], ['ATTACK', 'J OR LEFT CLICK. HOLD FOR HEAVY'], ['BLOCK', 'K OR RIGHT CLICK. LATE BLOCK PARRIES'],
+  ['ROLL', 'L OR SHIFT'], ['HEAL', 'Q DRINKS A FLASK'], ['USE', 'E AT BONFIRES AND CHESTS'], ['FIREBALL', 'F, AFTER THE FIRST JARL'], ['DROP DOWN', 'S ON A LEDGE'],
+  ['BAG / MENU', 'I / ESC'], ['SOUND / VIEW', 'M / V'], ['GAMEPAD', 'A JUMP B ROLL X ATK Y HEAL LB BLOCK RB FIRE']];
+const HELP_TOUCH = [['MOVE', 'LEFT PAD'], ['ATK', 'TAP. HOLD FOR HEAVY'], ['BLOCK', 'HOLD. LATE BLOCK PARRIES'], ['ROLL', 'DODGE THROUGH HITS'], ['HEAL', 'DRINK A FLASK'],
+  ['JUMP', 'TAP. HOLD TO JUMP HIGHER'], ['USE', 'SHOWS AT BONFIRES AND CHESTS'], ['FIRE', 'FIREBALL, AFTER THE FIRST JARL'], ['BAG', 'TOP BUTTON. WEAR NEW GEAR'], ['MENU', 'TOP BUTTON. PAUSE, STATS, QUIT']];
+function openHelp(from) {
+  const back = from || closeMenu;
+  menu = { kind: 'help', title: 'CONTROLS', sel: 0, items: [{ label: 'GOT IT', act: back }], back };
+  state = 'menu';
+}
+function drawHelp(m) {
+  const rows = isTouchUI() ? HELP_TOUCH : HELP_KEYS;
+  rows.forEach(([a, b], i) => { const y = 28 + i * 9; drawTextS(a, 120, y, '#f2c14e', 1, 'right'); drawText(b, 128, y, '#d8c8b8'); });
+  drawText('WHITE FLASH: BLOCK OR PARRY.  RED FLASH: ROLL AWAY.', W / 2, 28 + rows.length * 9 + 3, '#8fd6c3', 1, 'center');
+  uiButton('GOT IT', 130, 156, 60, 14, true, m.back);
+}
 function openStats(from) {
   const back = from || closeMenu;
   menu = { kind: 'stats', title: 'STATS', sel: 0, items: [{ label: 'BACK', act: back }], back };
@@ -2222,7 +2251,7 @@ function openStats(from) {
 }
 function openPause() {
   menu = { kind: 'pause', title: 'PAUSED', sel: 0, items: [{ label: 'RESUME', act: closeMenu }, { label: 'INVENTORY', act: () => openBag(openPause) }, { label: 'STATS', act: () => openStats(openPause) },
-    { label: 'QUIT TO TITLE', act: () => { save(); toTitle(); } }], back: closeMenu };
+    { label: 'CONTROLS', act: () => openHelp(openPause) }, { label: 'QUIT TO TITLE', act: () => { save(); toTitle(); } }], back: closeMenu };
   state = 'menu';
 }
 function toTitle() { state = 'title'; menu = null; SAVE = loadSave(); titleSel = 0; newConfirm = false; titleArea = SAVE ? SAVE.unlocked - 1 : 0; buildLevel(LEVELS.length - 1); paintBg(); particles = []; Music.play(TITLE_SONG); }
@@ -2233,12 +2262,15 @@ function titleConfirm() {
   else if (SAVE && !newConfirm) { newConfirm = true; sfx('err'); }
   else { state = 'class'; classSel = 0; newConfirm = false; }
 }
-function startNewChar(cls) { CH = newChar(cls); save(); enterArea(0); }
+// After floor 100: keep the hero, gear and levels, start again at floor 1 with tougher foes.
+function startNG() { CH.ng = (CH.ng || 0) + 1; CH.unlocked = 1; CH.opened = {}; CH.drop = null; save(); enterArea(0); }
+function startNewChar(cls) { CH = newChar(cls); save(); enterArea(0); openHelp(); }
 function uiKey(k) {
   if (state === 'title') {
     const n = titleItems().length;
     if (k === 'up' || k === 'down') { titleSel = (titleSel + (k === 'up' ? n - 1 : 1)) % n; if (titleItems()[titleSel] !== 'SURE? ERASES SAVE') newConfirm = false; sfx('pick'); }
     else if ((k === 'left' || k === 'right') && SAVE && titleItems()[titleSel] === 'CONTINUE') { titleArea = (titleArea + (k === 'left' ? SAVE.unlocked - 1 : 1)) % SAVE.unlocked; sfx('pick'); }
+    else if ((k === 'l10' || k === 'r10') && SAVE) { titleSel = 0; titleArea = clamp(titleArea + (k === 'l10' ? -10 : 10), 0, SAVE.unlocked - 1); sfx('pick'); }
     else if (k === 'ok' || k === 'any') titleConfirm();
     else if (k === 'back') newConfirm = false;
   } else if (state === 'class') {
@@ -2263,7 +2295,7 @@ function uiKey(k) {
     else if (k === 'ok') menu.items[menu.sel].act();
     else if (k === 'back' && menu.back) menu.back();
   } else if (state === 'clear') { if (clearT > 50) { enterArea(levelIdx + 1); } }
-  else if (state === 'win') { if (winT > 70) { if (levelIdx < LEVELS.length - 1) enterArea(levelIdx + 1); else toTitle(); } }
+  else if (state === 'win') { if (winT > 70) { if (levelIdx < LEVELS.length - 1) enterArea(levelIdx + 1); else startNG(); } }
 }
 function uiTap(x, y) {
   for (let i = uiRects.length - 1; i >= 0; i--) { const r = uiRects[i]; if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { r.fn(); return; } }
@@ -2283,6 +2315,7 @@ function step() {
     }
     return;
   }
+  CH.time = (CH.time || 0) + 1; // play time in steps, shown on the ending screen
   if (hitstop > 0) { hitstop--; return; }
   updateWorld(); updateParticles(); updateCamera();
 }
@@ -2575,7 +2608,7 @@ function drawHUD() {
   if (CH.meal) drawTextS('FED: ' + MEALS[CH.meal].name, 6, 30, '#f2a860');
   if (bannerT > 0) {
     ctx.globalAlpha = Math.max(0, Math.min(1, bannerT / 30, (260 - bannerT) / 20));
-    drawTextS('AREA ' + (levelIdx + 1) + ' OF ' + LEVELS.length, W / 2, 26, '#d8c8b8', 1, 'center');
+    drawTextS('AREA ' + (levelIdx + 1) + ' OF ' + LEVELS.length + (CH.ng ? '  NG+' + CH.ng : ''), W / 2, 26, '#d8c8b8', 1, 'center');
     drawTextS(LV.name, W / 2, 34, '#f2c14e', 2, 'center');
     drawTextS(ETYPES[LV.mob].name, W / 2, 48, '#e8dcc0', 1, 'center');
     drawTextS(LV.tip, W / 2, 58, '#8fd6c3', 1, 'center');
@@ -2629,10 +2662,11 @@ function drawTitle() {
     if (it === 'CONTINUE' && SAVE && SAVE.unlocked > 1) {
       uiButton('<', 24, y, 14, 14, false, () => { titleSel = i; uiKey('left'); });
       uiButton('>', 282, y, 14, 14, false, () => { titleSel = i; uiKey('right'); });
+      if (SAVE.unlocked > 10) { uiButton('<<', 4, y, 18, 14, false, () => uiKey('l10')); uiButton('>>', 298, y, 18, 14, false, () => uiKey('r10')); }
     }
   });
-  if (SAVE) drawTextS(CLASSES[SAVE.cls].name + '  LV ' + SAVE.lvl + '  XP ' + SAVE.xp, W / 2, 88, '#8a7a6a', 1, 'center');
-  drawText(isTouchUI() ? 'TAP TO CHOOSE' : 'W S: CHOOSE   A D: AREA   ENTER: START', W / 2, 100, '#b8a596', 1, 'center');
+  if (SAVE) drawTextS(CLASSES[SAVE.cls].name + '  LV ' + SAVE.lvl + '  XP ' + SAVE.xp + (SAVE.ng ? '  NG+' + SAVE.ng : ''), W / 2, 88, '#8a7a6a', 1, 'center');
+  drawText(isTouchUI() ? 'TAP TO CHOOSE' : 'W S: CHOOSE  A D: AREA  SHIFT A D: 10  ENTER: START', W / 2, 100, '#b8a596', 1, 'center');
   const line = ['knight', 'rat', 'bat', 'thrall', 'archer', 'spider', 'slime', 'wisp', 'shambler', 'shield', 'jarl'];
   line.forEach((k, i) => {
     const x = 24 + i * 27, by = 144 + (k === 'bat' || k === 'wisp' ? -14 + Math.round(Math.sin(frameN * .08 + i) * 2) : 0);
@@ -2667,6 +2701,7 @@ function drawMenu() {
   drawTextS(m.title, W / 2, 10, '#f2c14e', 2, 'center');
   if (m.kind === 'bag') return drawBag(m);
   if (m.kind === 'stats') return drawStats(m);
+  if (m.kind === 'help') return drawHelp(m);
   if (m.kind === 'level') {
     drawTextS('LV ' + CH.lvl + '   XP ' + CH.xp + '   COST ' + lvlCost(), W / 2, 26, CH.xp >= lvlCost() ? '#7fe08a' : '#d8c8b8', 1, 'center');
   } else if (m.kind === 'cook') {
@@ -2755,9 +2790,15 @@ function drawWin() {
   if (levelIdx === LEVELS.length - 1) {
     drawTextS('DUNGEON', W / 2, 30, '#f4ead6', 3, 'center');
     drawTextS('COMPLETE', W / 2, 50, '#f4ead6', 3, 'center');
-    drawTextS('ALL ' + LEVELS.length + ' FLOORS CLEARED', W / 2, 84, '#f2c14e', 1, 'center');
-    drawTextS(CLASSES[CH.cls].name + '  LV ' + CH.lvl, W / 2, 96, '#d8c8b8', 1, 'center');
-    if (winT > 70 && ((frameN / 30) | 0) % 2 === 0) drawTextS(isTouchUI() ? 'TAP TO CONTINUE' : 'PRESS ANY BUTTON TO CONTINUE', W / 2, 165, '#f4ead6', 1, 'center');
+    drawTextS('ALL ' + LEVELS.length + ' FLOORS CLEARED' + (CH.ng ? ' ON NG+' + CH.ng : ''), W / 2, 76, '#f2c14e', 1, 'center');
+    drawTextS('THE DEEP IS QUIET. THE DEAD SLEEP AGAIN.', W / 2, 86, '#d8c8b8', 1, 'center');
+    const mins = (CH.time || 0) / 3600 | 0, realItem = id => EMPTY[ITEMS[id].slot] !== id;
+    [['HERO', CLASSES[CH.cls].name + ' LV ' + CH.lvl], ['TIME', (mins / 60 | 0) + 'H ' + String(mins % 60).padStart(2, '0') + 'M'], ['DEATHS', String(CH.deaths || 0)],
+     ['GEAR FOUND', CH.inv.filter(realItem).length + ' / ' + Object.keys(ITEMS).filter(realItem).length]]
+      .forEach(([a, b], i) => { drawText(a, 156, 100 + i * 9, '#8a7a6a', 1, 'right'); drawText(b, 164, 100 + i * 9, '#f4ead6'); });
+    drawTextS('NEXT: NEW GAME+' + ((CH.ng || 0) + 1), W / 2, 142, '#f08030', 1, 'center');
+    drawText('KEEP YOUR GEAR. FOES GROW STRONGER.', W / 2, 151, '#8a7a6a', 1, 'center');
+    if (winT > 70 && ((frameN / 30) | 0) % 2 === 0) drawTextS(isTouchUI() ? 'TAP TO BEGIN' : 'PRESS ANY BUTTON TO BEGIN', W / 2, 165, '#f4ead6', 1, 'center');
     return;
   }
   drawTextS('JARL', W / 2, 8, '#f4ead6', 3, 'center');
@@ -2842,7 +2883,8 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-document.addEventListener('visibilitychange', () => { if (!AC) return; if (document.hidden) AC.suspend().catch(() => {}); else AC.resume().catch(() => {}); });
+addEventListener('pagehide', () => { if (CH && state === 'play') save(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && CH && state === 'play') save(); if (!AC) return; if (document.hidden) AC.suspend().catch(() => {}); else AC.resume().catch(() => {}); });
 setMuted(muted);
 // test hook (harmless): lets automated checks inspect state
 window.__dd = { get state() { return state; }, get P() { return P; }, get CH() { return CH; }, get boss() { return boss; }, get enemies() { return enemies; }, get menu() { return menu; },
