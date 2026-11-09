@@ -13,6 +13,8 @@
 - Block: front hits only. Chip damage = dmg x (1 - absorb). Stamina cost = dmg x (100 - stability) / 28. Empty stamina = guard break (50 frame stagger).
 - Parry: block raised within the shield's parry window (5 to 11 frames) when a parryable hit lands. Enemy staggers 80 frames; next hit is a riposte for 3x damage.
 - Roll: 18 stamina, i-frames depend on armor weight (light / mid / heavy).
+- Air dash: roll in the air once per jump. It holds your height for 10 frames and goes 15% faster than a ground roll, with the same i-frames.
+- Roll jump: press jump during a ground roll to leap out of it at roll speed (a long jump, costs the normal 8 stamina).
 - Poise: enemies stagger when poise damage exceeds their poise.
 - Fireball: unlocked by beating the Jarl. 30 stamina, 24 frame cast, flies straight, 34 damage (scales with STR), 20 poise damage. Shieldbearers block it from the front, glowing wisps ignore it.
 - Flasks: 3 (4 after the Jarl). Heal 45% max HP, slow to drink. Potions refill one flask, or heal 35% when full.
@@ -57,7 +59,7 @@
 - Odd generated floors run right to left (bonfire on the right, exit on the left).
 - Every 10th floor is a Jarl hall with a traited Jarl. The first Jarl gives the win screen and fireball, later ones lead on.
 - Generated mobs never spawn in a dip or next to a pillar (they used to get stuck).
-- Spike traps (`^`): iron plates with steel points on the floor. Stepping on them costs 12% max HP + 4, staggers you and throws you up. Rolling does not help: jump over. One tile wide, two tiles past floor 30. In areas 3, 6, 8 and on generated floors.
+- Spike traps (`^`): iron plates with steel points on the floor. Stepping on the points costs 8% max HP + 3 and throws you up and onward, out of the pit, with 40 frames of i-frames (no stagger, so one misstep is one hit). A ground roll does not help: jump over, or jump and air dash over a wide pit. One tile wide, two tiles past floor 30. In areas 3, 6, 8 and on generated floors.
 
 ## Ending and New Game+
 - Floor 100's Jarl shows the ending: hero, play time, deaths, gear found.

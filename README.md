@@ -42,7 +42,7 @@ Saves live in the browser's localStorage per address, so `file://`, `localhost:8
 | Jump (hold for higher) | W / Space / Up | JUMP | A |
 | Attack (hold for heavy) | J or left click | ATK | X |
 | Block (block late to parry) | K or right click | BLOCK | LB / LT / RT |
-| Roll | L or Shift | ROLL | B |
+| Roll (in the air: dash) | L or Shift | ROLL | B |
 | Drink flask | Q | HEAL | Y |
 | Cast fireball (after the first Jarl) | F | FIRE | RB |
 | Use: bonfire, chest, altar, rest shrine | E | USE | D-pad up |

@@ -56,7 +56,7 @@ body.is-touch.portrait #rot{display:block}
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V17 2026-11-09 CONCEPT ART';
+const VERSION = 'V18 2026-11-09 AIR DASH';
 const W = 320, H = 176, TS = 16;
 // RES = screen pixels per game pixel. Game logic and layout stay 320x176, but every canvas is drawn at RES times
 // the detail: sprites are upscaled with finer outlines and shading, tiles and walls get half pixel texture.
@@ -542,7 +542,7 @@ const NOUN = ['CRYPT', 'CATACOMBS', 'OSSUARY', 'MINES', 'HOARD', 'HALLS', 'BARRO
 const GEN_TIPS = ['GREEN SLIMES HEAL FAST. KILL THEM IN ONE PUSH.', 'BLUE SLIMES SHRUG OFF LIGHT HITS. GO HEAVY.', 'A SWELLING RED SLIME WILL BURST. ROLL AWAY.',
   "NEVER SWING INTO A SPIDER WARRIOR'S STANCE. GET BEHIND IT.", 'FALLEN THRALLS RISE AGAIN. CRUSH THE BONES WITH A HEAVY.', 'BLOCK LATE TO PARRY AN ARROW BACK.',
   'RATS HUNT IN PACKS. LURE ONE AWAY.', 'MIXED BLOOD. READ EACH TELL.', 'A TINTED FOE CARRIES A TRAIT.', 'CARVE PARTS. COOK THEM AT THE BONFIRE.', 'GIANTS HIT HARDER. ROLL MORE.',
-  'FROST FOES DRAIN STAMINA, EVEN ON BLOCK.', 'SPIKES IGNORE ROLLS. JUMP THEM.', 'EMBER FOES BURN WHERE THEY FALL.', 'CURSED FOES HEAL WHEN THEY HIT YOU.', 'IRON FOES SHRUG OFF STAGGER.'];
+  'FROST FOES DRAIN STAMINA, EVEN ON BLOCK.', 'SPIKES IGNORE ROLLS. JUMP, THEN ROLL IN THE AIR TO DASH.', 'EMBER FOES BURN WHERE THEY FALL.', 'CURSED FOES HEAL WHEN THEY HIT YOU.', 'IRON FOES SHRUG OFF STAGGER.'];
 function seeded(s) { return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }
 function genFloor(n) {
   const R = seeded(1000 + n * 7919), pick = a => a[(R() * a.length) | 0], ri = (a, b) => a + ((R() * (b - a + 1)) | 0);
@@ -633,7 +633,7 @@ function buildLevel(n) {
     if (ch === '#' || ch === '=' || ch === '.') continue;
     MAP[y][x] = '.';
     if (ch === 'T') SPAWNS.torches.push({ x: x * TS + 8, y: y * TS + 8 });
-    else if (ch === '^') SPAWNS.spikes.push({ x: x * TS + 1, y: y * TS + 10, w: 14, h: 6 });
+    else if (ch === '^') SPAWNS.spikes.push({ x: x * TS + 3, y: y * TS + 12, w: 10, h: 4 });
     else if (ch === 'c') SPAWNS.coins.push({ x: x * TS + 4, y: y * TS + 4 });
     else if (ch === 'p') SPAWNS.potions.push({ x: x * TS + 4, y: y * TS + 8 });
     else if (ch === 'X') SPAWNS.exit = { x: x * TS, y: (y - 1) * TS, w: 16, h: 32 };
@@ -2659,6 +2659,8 @@ function startRoll(ax) {
   const wt = curWT();
   P.state = 'roll'; P.t = wt.roll; P.rollDir = ax || P.face; P.face = P.rollDir;
   P.stam -= wt === OVER_WT ? 27 : 18; P.stamDelay = 30; sfx('roll');
+  // in the air: a dash, once per jump. It floats a moment so it carries you over a gap or a spike pit
+  P.inAir = !P.onGround; if (P.inAir) { P.airDash = true; P.vy = Math.min(P.vy, -1); }
 }
 // standing on a one-way ledge (not solid ground)
 function onLedge() {
@@ -2697,7 +2699,7 @@ function updatePlayer() {
       if (P.buf && !(P.landT > 0)) {
         const k = P.buf.k;
         if ((k === 'light' || k === 'heavy') && P.stam > 0) { startAttack(k === 'heavy', P.chain > 0); P.buf = null; }
-        else if (k === 'roll' && P.onGround && P.stam > 0) { if (P.webT > 0) { ftext(P.x + 5, P.y - 10, 'CAN NOT ROLL', '#e8e8e8'); P.buf = null; } else { startRoll(ax); P.buf = null; } }
+        else if (k === 'roll' && (P.onGround || !P.airDash) && P.stam > 0) { if (P.webT > 0) { ftext(P.x + 5, P.y - 10, 'CAN NOT ROLL', '#e8e8e8'); P.buf = null; } else { startRoll(ax); P.buf = null; } }
         else if (k === 'fire') {
           if (P.stam > 0) { P.state = 'cast'; P.t = 24; P.stam -= FIRE_COST; P.stamDelay = 40; if (ax) P.face = ax; }
           else { ftext(P.x + 5, P.y - 10, 'NO STAMINA', '#c8a090'); sfx('err'); }
@@ -2732,8 +2734,14 @@ function updatePlayer() {
       P.blocking = false; P.t--;
       const prog = wt.roll - P.t;
       if (prog >= wt.iA && prog <= wt.iB) P.iframes = Math.max(P.iframes, 1);
-      P.vx = P.rollDir * wt.spd * (P.t > 4 ? 1 : .5);
-      if (P.t <= 0) { P.state = 'free'; P.vx *= .3; }
+      P.vx = P.rollDir * wt.spd * (P.t > 4 ? 1 : .5) * (P.inAir ? 1.15 : 1);
+      if (P.inAir && prog < 10) P.vy = Math.min(P.vy, .4); // air dash: hold height for a moment
+      // jump out of a roll: a long jump that keeps the roll speed
+      if (P.jbuf > 0 && P.coyote > 0 && P.stam > 0 && !P.inAir) {
+        P.state = 'free'; P.stam -= JUMP_COST; P.vy = -JUMP_V; P.jumpY = P.y; P.jbuf = 0; P.coyote = 0; P.vx = P.rollDir * wt.spd;
+        sfx('jump'); dust(P.x + P.w / 2, P.y + P.h - 1, 4, 4); break;
+      }
+      if (P.t <= 0) { P.state = 'free'; P.vx *= P.onGround ? .3 : .8; }
       break;
     }
     case 'heal':
@@ -2772,7 +2780,7 @@ function updatePlayer() {
   if (P.onGround && wasAir && fallV > 2.5) { sfx('land'); dust(P.x + P.w / 2, P.y + P.h - 1, 6, 6); if (P.state === 'free') { P.landT = fallV > 5 ? 14 : 6; P.vx *= .4; } }
   if (P.state === 'roll' && P.onGround && P.t % 4 === 0) dust(P.x + P.w / 2 - P.rollDir * 4, P.y + P.h - 1, 1, 3);
   if (lowHP() && frameN % 64 === 0) sfx('beat');
-  if (P.onGround) { P.coyote = 6; P.lastGroundY = P.y; } else if (P.coyote > 0) P.coyote--;
+  if (P.onGround) { P.coyote = 6; P.lastGroundY = P.y; P.airDash = false; } else if (P.coyote > 0) P.coyote--;
   if (Math.abs(P.vx) > .2 && P.onGround && (P.state === 'free' || P.state === 'heal')) { P.walkT++; if (P.walkT % (P.blocking ? 26 : 18) === 1) sfx('step'); } else P.walkT = 0;
 }
 
@@ -3257,12 +3265,15 @@ function updateEnemy(e) {
 function updateWorld() {
   updatePlayer();
   if (state !== 'play') return;
-  // spike traps: stepping on the points hurts and throws you up; a roll does not help, jump over them
+  // spike traps: the points hurt and throw you up and onward, out of the pit. Jump them, or jump and dash over a wide pit
   if (P.spikeT > 0) P.spikeT--;
-  else if (P.state !== 'dead' && P.vy >= 0) for (const k of SPAWNS.spikes) if (overlap(P, k)) {
-    P.spikeT = 45; damagePlayer(Math.round(maxHP() * .12) + 4, P.x + P.w / 2 + (P.vx >= 0 ? 4 : -4), .8, true);
+  else if (P.state !== 'dead' && P.vy >= 0 && P.iframes <= 0) for (const k of SPAWNS.spikes) if (overlap(P, k)) {
+    const dir = Math.sign(P.vx) || P.face;
+    P.spikeT = 50; damagePlayer(Math.round(maxHP() * .08) + 3, P.x + P.w / 2 - dir * 4, 0, false);
     if (state !== 'play') return;
-    P.vy = -3.4; spark(P.x + P.w / 2, k.y + 2, '#e8dcc0', 6); break;
+    if (P.state === 'roll' || P.state === 'atk') P.state = 'free';
+    P.vy = -4.4; P.vx = dir * 1.7; P.face = dir; P.iframes = 40; P.airDash = false; shake = Math.max(shake, 3);
+    spark(P.x + P.w / 2, k.y + 2, '#e8dcc0', 6); break;
   }
   tickMobFx();
   const viewC = camX + W / 2;
@@ -3594,9 +3605,9 @@ function temper(sl) {
 }
 // Controls screen: shown once when a new game starts, and from the pause menu.
 const HELP_KEYS = [['MOVE', 'A D OR ARROWS'], ['JUMP', 'SPACE OR W'], ['ATTACK', 'J OR LEFT CLICK. HOLD FOR HEAVY'], ['BLOCK', 'K OR RIGHT CLICK. LATE BLOCK PARRIES'],
-  ['ROLL', 'L OR SHIFT'], ['HEAL', 'Q DRINKS A FLASK'], ['USE', 'E AT BONFIRES, CHESTS AND ALTARS'], ['FIREBALL', 'F, AFTER THE FIRST JARL'], ['DROP DOWN', 'S ON A LEDGE'],
+  ['ROLL', 'L OR SHIFT. IN THE AIR: DASH'], ['HEAL', 'Q DRINKS A FLASK'], ['USE', 'E AT BONFIRES, CHESTS AND ALTARS'], ['FIREBALL', 'F, AFTER THE FIRST JARL'], ['DROP DOWN', 'S ON A LEDGE'],
   ['BAG / MENU', 'I / ESC.  BAG: ENTER OR RIGHT CLICK = ACTIONS'], ['SOUND / VIEW', 'M / V'], ['GAMEPAD', 'A JUMP B ROLL X ATK Y HEAL LB BLOCK RB FIRE']];
-const HELP_TOUCH = [['MOVE', 'LEFT PAD'], ['ATK', 'TAP. HOLD FOR HEAVY'], ['BLOCK', 'HOLD. LATE BLOCK PARRIES'], ['ROLL', 'DODGE THROUGH HITS'], ['HEAL', 'DRINK A FLASK'],
+const HELP_TOUCH = [['MOVE', 'LEFT PAD'], ['ATK', 'TAP. HOLD FOR HEAVY'], ['BLOCK', 'HOLD. LATE BLOCK PARRIES'], ['ROLL', 'DODGE HITS. IN THE AIR: DASH'], ['HEAL', 'DRINK A FLASK'],
   ['JUMP', 'TAP. HOLD TO JUMP HIGHER'], ['USE', 'BONFIRES, CHESTS, ALTARS. DROP FROM LEDGES'], ['FIRE', 'FIREBALL, AFTER THE FIRST JARL'], ['BAG', 'TOP BUTTON. TAP AN ITEM TWICE FOR ACTIONS'], ['ALTAR', 'EVERY 3RD FLOOR. CRAFT GEAR FROM DUST'], ['MENU', 'TOP BUTTON. PAUSE, STATS, QUIT']];
 function openHelp(from) {
   const back = from || closeMenu;
