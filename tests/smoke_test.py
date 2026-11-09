@@ -145,6 +145,11 @@ async def main():
         else:
             print("SKIP 3D checks (no WebGL in this browser)")
 
+        # hero is drawn from parts: every class, weapon, shield and armor paints pixels
+        n = await ev("""(() => { let ok = 0, tot = 0; const W = Object.keys(ITEMS).filter(k => ITEMS[k].slot === 'w'), Sh = Object.keys(ITEMS).filter(k => ITEMS[k].slot === 's'), A = Object.keys(ITEMS).filter(k => ITEMS[k].slot === 'a');
+          for (const cls of CLASS_KEYS) for (const w of W) for (const s of Sh) for (const a of A) { tot++; paintHero({ cls, w, s, a, legs: 'walk1', A: -60, block: s !== 'none' });
+            const d = hb.getImageData(0, 0, 48, 40).data; let px = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) px++; if (px > 120) ok++; } return ok === tot; })()""")
+        check("hero paints with every gear combo", n)
         check("no page errors", not errs, "; ".join(errs[:3]))
         await b.close()
 

@@ -17,7 +17,7 @@ Souls-like pixel dungeon side scroller. Plain HTML5 canvas + WebAudio, no build 
 Core setup, Bitmap font (3x5), Sprites (text grids in `GRIDS`, palette `PAL`), Levels (`LEVELS`, `buildLevel`),
 physics (`moveBody`, one-way platforms `=`), Background prerender (`paintBg`: `bgWall` back wall, `bg` full 2D backdrop),
 3D view (`V3`: WebGL draws the level as blocks on canvas `#g3` under the see-through 2D canvas), Audio (songs, `SFX`, generative music `GEN`/`genBar`),
-Extra sprites, Classes/gear (`CLASSES`, `ITEMS`, `CH` = saved character), Input, Game state, Player (`updatePlayer`, `resolveHit`),
+Extra sprites, Hero sprites (`HERO` part grids, `paintHero` builds the hero each frame from head, armor torso, pose legs, swinging weapon and shield), Classes/gear (`CLASSES`, `ITEMS`, `CH` = saved character), Input, Game state, Player (`updatePlayer`, `resolveHit`),
 Enemies shared (`hitEnemy`, `startAtk`/`runAtk` attack phases wind/act/rec), Enemy mechanics (one `AI.x` + attack defs per enemy),
 World (`updateWorld`), Menus and UI flow, Rendering, Main loop, test hook `window.__dd`.
 
