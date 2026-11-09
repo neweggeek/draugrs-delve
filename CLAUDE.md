@@ -23,6 +23,7 @@ World (`updateWorld`), Menus and UI flow, Rendering, Main loop, test hook `windo
 
 ## Conventions
 - Internal resolution 320x176, 16px tiles, 60 steps/second fixed timestep. Frame counts are in steps.
+- Fine detail: `RES` = 2 screen pixels per game pixel. Logic, layout and all coordinates stay in game pixels (320x176); the main canvas, sprite canvases, hero buffer `HB` and level backdrops are RES times bigger and drawn through a scale transform. Draw a sprite with `blit`/`drawSpr`/`drawSprAt` (or pass `s.w, s.h` to drawImage), never `drawImage(s.c[0], x, y)` alone. `FP` = one fine pixel (0.5) for half pixel highlights; `px(v)` snaps to the fine grid. `mkSprite` upscales grids with `hiGrid` (Scale2x, thin outline, top light / bottom shade).
 - 3D view: game logic stays 2D. Only the level tiles and back wall are 3D; actors, effects, lights and HUD are still drawn on the 2D canvas, which lines up with the z = 0 plane. Something drawn on the back wall in 2D must go through `V3.pt(x, y)` (see torches). View choice saved in localStorage `dd_view`.
 - Enemies only deal damage through attacks (no contact damage). New attacks: add a def `{ wind, act, rec, dmg, parry, unblock, red, box, start, during, end, next, cd }` and call `startAtk`.
 - Telegraphs: white flash = blockable, red flash (`red: true`, `unblock: true`) = must roll.

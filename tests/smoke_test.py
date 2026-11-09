@@ -150,7 +150,7 @@ async def main():
         # hero is drawn from parts: every class, weapon, shield and armor paints pixels
         n = await ev("""(() => { let ok = 0, tot = 0; const W = Object.keys(ITEMS).filter(k => ITEMS[k].slot === 'w'), Sh = Object.keys(ITEMS).filter(k => ITEMS[k].slot === 's'), A = Object.keys(ITEMS).filter(k => ITEMS[k].slot === 'a');
           for (const cls of CLASS_KEYS) for (const w of W) for (const s of Sh) for (const a of A) { tot++; paintHero({ cls, w, s, a, legs: 'walk1', A: -60, block: s !== 'none' });
-            const d = hb.getImageData(0, 0, 48, 40).data; let px = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) px++; if (px > 120) ok++; } return ok === tot; })()""")
+            const d = hb.getImageData(0, 0, HB.width, HB.height).data; let px = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) px++; if (px > 120) ok++; } return ok === tot; })()""")
         check("hero paints with every gear combo", n)
         # juice: death shatters into sprite pixels, squash and stretch, low HP heartbeat
         n = await ev("(() => { const e = makeEnemy('t', 10, 5); const before = particles.length; shatter(e); return particles.length - before; })()")
