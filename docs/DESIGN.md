@@ -32,7 +32,13 @@
 - 100 floors. 1 to 10 are hand built (one lesson each, Jarl on 10). 11 to 100 are generated from a seed, so each floor is the same every visit.
 - Deeper floors: wider, more mobs, mixed bodies, enemy HP +3.5 and damage +1.8 per floor past 10.
 - Odd generated floors run right to left (bonfire on the right, exit on the left).
-- Every 10th floor is a Jarl hall with a traited Jarl. The first Jarl gives the win screen and fireball, later ones lead on. Floor 100 ends the run.
+- Every 10th floor is a Jarl hall with a traited Jarl. The first Jarl gives the win screen and fireball, later ones lead on.
+- Generated mobs never spawn in a dip or next to a pillar (they used to get stuck).
+
+## Ending and New Game+
+- Floor 100's Jarl shows the ending: hero, play time, deaths, gear found.
+- Any button then starts New Game+ at floor 1: keep level, gear and fireball; chests refill; floors lock again.
+- Each NG+ cycle: foe HP and XP x(1 + 0.6 NG), foe damage x(1 + 0.4 NG). Shown as NG+N on the banner and title.
 
 ## Mix-and-match monsters
 - Any body can carry traits. First trait tints the sprite; the name shows above it.
@@ -78,5 +84,11 @@
 - Loot pool: Bone Sword, Iron Ring, Bone Ring, Wolf Tooth (common); Bearded Axe, Round Shield, Wolf Pelt, Serpent Ring, Raven Charm (rare); Rune Blade, Frostfang, Bone Targe, Raven Leather, Ember Ring, Rune Stone (epic); Skullsplitter, Rune Mail, Allfather Ring, Thor's Hammer (legendary).
 - Chest gear is rare or epic and never drops from monsters.
 
+## Clarity
+- A controls screen opens when a new game starts (keyboard or touch version) and from the pause menu (CONTROLS).
+- Touch: MENU button at the top pauses (resume, inventory, stats, controls, quit). Gamepad: Start pauses, Select opens the bag.
+- Title floor picker: A D one floor, Shift + A D ten floors (<< >> on touch, LB RB on a pad).
+- The game saves when the tab is hidden or closed, so XP is not lost.
+
 ## Not built yet
-NPCs or shops, settings menu.
+NPCs or shops, settings menu, gear upgrades (the loot pool is all found by about floor 25), touch drop-down through ledges.

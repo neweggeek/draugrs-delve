@@ -30,7 +30,7 @@ World (`updateWorld`), Menus and UI flow, Rendering, Main loop, test hook `windo
   Bonfire (col 4) and exit door are added automatically.
 - Jump reach: about 42 to 46 px. Keep ledges 32 px (2 tiles) apart vertically.
 - Save key in localStorage: `dd2`. New save fields get defaults in `loadSave` so old saves keep working; bump the key only if that is not possible.
-- Text in the game uses the bitmap font: uppercase letters, digits and `! : . + - ' , / ? %` only.
+- Text in the game uses the bitmap font: uppercase letters, digits and `! : . + - ' , / ? % < >` only.
 - Never use em dashes in code comments, UI text or docs.
 - Mobile matters: every feature needs a touch path (on-screen buttons or tapping `uiRects`).
 
