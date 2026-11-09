@@ -28,7 +28,8 @@ World (`updateWorld`), Menus and UI flow, Rendering, Main loop, test hook `windo
 - Enemies only deal damage through attacks (no contact damage). New attacks: add a def `{ wind, act, rec, dmg, parry, unblock, red, box, start, during, end, next, cd }` and call `startAtk`.
 - Telegraphs: white flash = blockable, red flash (`red: true`, `unblock: true`) = must roll.
 - Level ops: `[char, col, row, count, height]`. Chars: `#` wall, `=` ledge, `T` torch, `c` XP shard, `p` potion, `G` chest, `A` rune altar, mob letters r b t a s e w h k J, g u v (green, blue, red slime), W (spider warrior), Q (spider queen), o (spider egg).
-  Bonfire (col 4), exit door and the altar (col 7, every third floor) are added automatically.
+  Bonfire (col 4), exit door, the altar (col 7, every third floor) and the rest shrine `R` (col `LV.rest`, safe zone `SAFE`) are added automatically.
+- Combat pace lives in `PACE` (weapon and enemy timing multipliers) and `P_GRAV`, `JUMP_V`, `JUMP_COST`.
 - Jump reach: about 42 to 46 px. Keep ledges 32 px (2 tiles) apart vertically.
 - Save key in localStorage: `dd2`. New save fields get defaults in `loadSave` so old saves keep working; bump the key only if that is not possible.
 - Text in the game uses the bitmap font: uppercase letters, digits and `! : . + - ' , / ? % < >` only.
