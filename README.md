@@ -62,6 +62,7 @@ Telegraphs: white flash = block or parry, red flash = roll away.
 - 3D view: the dungeon is drawn in 3D with WebGL while the sprites stay pixel art. V or the 2D / 3D button switches to the flat view. Falls back to 2D without WebGL.
 - Stamina-based combat: light and heavy attacks, 3-hit combos, block, parry and riposte, roll with i-frames, guard break, poise.
 - Ten hand-built areas, one enemy each: rats, bats, thralls, archers, spiders, slimes, wisps, shamblers, shieldbearers, the Jarl. Deeper floors add green, blue and red slimes, spider warriors and the Spider Queen mini boss, plus mixed traits (IRON, SWIFT, GIANT, ...) and gold elites.
+- Concept art look: mossy stone halls with arches, portcullises and chains, spike traps, and painted monsters with full animation (idle, walk, wind-up, strike, hurt).
 - Every mob has a rule to learn (rats hunt in packs, thralls reassemble, wisps glow, ...). See `docs/DESIGN.md`.
 - Bonfires: rest to heal, refill flasks, level up, cook, repair. Resting brings monsters back.
 - Rest shrine in the middle of each area: a safe zone that also works as a checkpoint.
