@@ -56,7 +56,7 @@ body.is-touch.portrait #rot{display:block}
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V15 2026-11-09 HI-RES ART';
+const VERSION = 'V16 2026-11-09 BAG ACTIONS';
 const W = 320, H = 176, TS = 16;
 // RES = screen pixels per game pixel. Game logic and layout stay 320x176, but every canvas is drawn at RES times
 // the detail: sprites are upscaled with finer outlines and shading, tiles and walls get half pixel texture.
@@ -1638,8 +1638,8 @@ function repairAll() {
   if (CH.xp < p.xp) { sfx('err'); menu.msg = 'NEED ' + c + ' DUST OR MORE XP'; menu.msgT = 90; return; }
   CH.dust -= p.d; CH.xp -= p.xp; CH.dur = {}; sfx('levelup'); menu.msg = 'GEAR REPAIRED'; menu.msgT = 100; save();
 }
-function gear(id) {
-  const n = upLv(id), dt = durTier(id), key = id + '|' + n + '|' + dt;
+function gear(id, n = upLv(id)) {
+  const dt = durTier(id), key = id + '|' + n + '|' + dt;
   if (GEAR[key]) return GEAR[key];
   const it = ITEMS[id], g = Object.assign({}, it), m = 1 + .08 * n;
   if (n) {
@@ -1673,11 +1673,12 @@ function fxLine(id) {
   return out.join('  ');
 }
 const DUST = [3, 8, 20, 50]; // rune dust from salvaging an item, by rarity
-const salvageDust = id => DUST[ITEMS[id].rar] + upLv(id) * 4;
-function bonusLine(id) { const b = gear(id).b || {}; return STATS.filter(k => b[k]).map(k => '+' + b[k] + ' ' + k.toUpperCase()).join('  '); }
-function itemLine(id) {
-  const it = gear(id);
-  if (it.slot === 'r' || it.slot === 'n') return bonusLine(id) || 'EMPTY';
+// copies share one upgrade level, so only the last copy pays out for its upgrades
+const salvageDust = id => DUST[ITEMS[id].rar] + (copies(id) > 1 ? 0 : upLv(id) * 4);
+function bonusLine(id, n) { const b = gear(id, n).b || {}; return STATS.filter(k => b[k]).map(k => '+' + b[k] + ' ' + k.toUpperCase()).join('  '); }
+function itemLine(id, n) {
+  const it = gear(id, n);
+  if (it.slot === 'r' || it.slot === 'n') return bonusLine(id, n) || 'EMPTY';
   if (it.slot === 'w') return 'ATK ' + Math.round(it.l * dmgMult()) + ' / ' + Math.round(it.h * dmgMult()) + '  COST ' + it.lc;
   if (it.slot === 's') return 'BLOCK ' + Math.round(it.absorb * 100) + '%  STABILITY ' + it.stab;
   return 'DEF ' + Math.round(it.def * 100) + '%  ' + it.wt.toUpperCase();
@@ -1757,7 +1758,7 @@ cv.addEventListener('pointerdown', e => {
     return;
   }
   const r = cv.getBoundingClientRect();
-  uiTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H);
+  uiTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H, e.pointerType === 'mouse' && e.button === 2);
 });
 addEventListener('pointerup', e => { if (e.pointerType === 'mouse') { if (e.button === 2) mouse.block = false; else mouse.atk = false; } });
 cv.addEventListener('contextmenu', e => e.preventDefault());
@@ -2858,16 +2859,18 @@ const BAG_ROWS = 3;
 // keep the picked cell on screen
 function bagScroll() { const m = menu, r = (m.sel / BAG_COLS) | 0; m.top = m.top || 0; if (r < m.top) m.top = r; if (r >= m.top + BAG_ROWS) m.top = r - BAG_ROWS + 1; }
 const bagMaxTop = () => Math.max(0, Math.ceil(menu.list.length / BAG_COLS) - BAG_ROWS);
-// pick a bag cell: wear it, or in combine mode melt it into the chosen item
-function bagPick(i) {
-  const id = menu.list[i]; if (!id) return;
-  if (menu.comb) return combine(menu.comb, id);
-  menu.salv = null; equipItem(id);
+// Bag input, the same on every device: pick a cell to see its info, pick it again (or right click, Enter, pad A,
+// or ACTIONS) for the action menu: equip / take off, combine, salvage. Salvage asks to confirm.
+function bagSelect(i) {
+  if (!menu.list[i]) return;
+  if (menu.sel === i) return openActs();
+  menu.sel = i; bagScroll(); sfx('pick');
 }
 function bagList() { return CH.inv.filter(id => ITEMS[id] && EMPTY[ITEMS[id].slot] !== id).sort((a, b) => SLOTS.indexOf(ITEMS[a].slot) - SLOTS.indexOf(ITEMS[b].slot) || ITEMS[a].rar - ITEMS[b].rar); }
-function openBag(from) {
+function openBag(from, keep) {
   const back = from || closeMenu;
-  menu = { kind: 'bag', title: 'INVENTORY', sel: 0, top: 0, items: [], back, list: bagList(), comb: null, salv: null };
+  menu = { kind: 'bag', title: 'INVENTORY', sel: 0, top: 0, items: [], back, list: bagList(), act: null };
+  if (keep) { const j = menu.list.indexOf(keep); if (j >= 0) { menu.sel = j; bagScroll(); } }
   state = 'menu';
 }
 function equipItem(id) {
@@ -2884,31 +2887,85 @@ const copies = id => CH.inv.filter(x => x === id).length;
 const isWorn = id => CH.eq[ITEMS[id].slot] === id;
 // an item you can give away: not your only worn copy
 const spare = id => !isWorn(id) || copies(id) > 1;
-function bagMsg(t, err) { menu.msg = t; menu.msgT = 110; sfx(err ? 'err' : 'pick'); }
+const wornWhy = id => EMPTY[ITEMS[id].slot] ? 'WORN. TAKE IT OFF FIRST' : 'WORN. EQUIP ANOTHER ' + SLOT_NAME[ITEMS[id].slot] + ' FIRST';
+function bagMsg(t, err) { menu.msg = t; menu.msgT = 110; menu.msgErr = !!err; sfx(err ? 'err' : 'pick'); }
 function takeOne(id) { CH.inv.splice(CH.inv.indexOf(id), 1); if (!CH.inv.includes(id)) { delete CH.up[id]; fixDur(id); } }
-function refreshBag(keep) { menu.list = bagList(); const j = menu.list.indexOf(keep); menu.sel = j >= 0 ? j : clamp(menu.sel, 0, Math.max(0, menu.list.length - 1)); }
-// Salvage: break an item into rune dust. Asks once before it breaks anything.
+function refreshBag(keep) { menu.list = bagList(); const j = menu.list.indexOf(keep); menu.sel = j >= 0 ? j : clamp(menu.sel, 0, Math.max(0, menu.list.length - 1)); bagScroll(); }
+// action menu rows for an item: { label, ok, why, fn }. Rows that can not be used stay visible, greyed, with the reason.
+function actRows(id) {
+  if (menu && menu.act && menu.act.confirm) return [
+    { label: 'YES, SALVAGE FOR ' + salvageDust(id) + ' DUST', ok: true, fn: () => salvage(id), col: '#e8574a' },
+    { label: 'NO, KEEP IT', ok: true, fn: closeActs }];
+  const worn = isWorn(id), sl = ITEMS[id].slot, rows = [];
+  if (!worn) rows.push({ label: 'EQUIP', ok: true, fn: () => { closeActs(); equipItem(id); } });
+  else if (EMPTY[sl]) rows.push({ label: 'TAKE OFF', ok: true, fn: () => { closeActs(); equipItem(id); } });
+  else rows.push({ label: 'EQUIPPED', ok: false, why: 'ALREADY WORN' });
+  const mx = upLv(id) >= MAX_UP, nc = meltList(id).length;
+  rows.push({ label: 'COMBINE', ok: !mx && nc > 0, why: mx ? 'ALREADY +' + MAX_UP : 'NO SPARE ' + SLOT_NAME[sl] + ' TO MELT INTO IT', fn: () => openCombine(id) });
+  rows.push({ label: 'SALVAGE  +' + salvageDust(id) + ' DUST', ok: spare(id), why: wornWhy(id), fn: () => { menu.act.confirm = true; menu.act.sel = 1; sfx('pick'); } });
+  rows.push({ label: 'CANCEL', ok: true, fn: closeActs });
+  return rows;
+}
+function openActs(confirm) {
+  const id = menu.list[menu.sel]; if (!id) return;
+  menu.act = { id, sel: 0, confirm: false }; sfx('pick');
+  if (confirm) { if (!spare(id)) { menu.act = null; return bagMsg(wornWhy(id), true); } menu.act.confirm = true; menu.act.sel = 1; }
+}
+function closeActs() { if (menu) menu.act = null; }
+function runAct(i) {
+  const a = menu.act, r = actRows(a.id)[i]; if (!r) return;
+  a.sel = i;
+  if (!r.ok) return bagMsg(r.why, true);
+  r.fn();
+}
+// Salvage: break one copy into rune dust. Only reached through the confirm rows.
 function salvage(id) {
-  if (!id) return;
-  if (!spare(id)) return bagMsg('TAKE IT OFF FIRST', true);
-  if (menu.salv !== id) { menu.salv = id; return bagMsg('SALVAGE ' + gear(id).name + ' FOR ' + salvageDust(id) + ' DUST? AGAIN TO CONFIRM'); }
-  const d = salvageDust(id); menu.salv = null;
-  takeOne(id); CH.dust += d; refreshBag(); bagMsg('+' + d + ' DUST'); sfx('coin'); save();
+  closeActs();
+  if (!id || !CH.inv.includes(id)) return;
+  if (!spare(id)) return bagMsg(wornWhy(id), true);
+  const d = salvageDust(id), name = gear(id).name;
+  takeOne(id); CH.dust += d; refreshBag(); bagMsg('SALVAGED ' + name + '  +' + d + ' DUST'); sfx('coin'); save();
 }
-// Combine: melt one item into another of the same slot. The kept item gains +1 (plus half the melted item's upgrades).
-function startCombine(id) {
-  if (!id) return;
-  if (upLv(id) >= MAX_UP) return bagMsg('ALREADY +' + MAX_UP, true);
-  menu.comb = id; menu.salv = null; bagMsg('PICK A ' + SLOT_NAME[ITEMS[id].slot] + ' TO MELT INTO IT');
+// Combine: melt one item into another of the same slot. The kept item gains +1 (plus half the melted item's upgrades,
+// when it is a different item; copies share one level). Always works. Its own screen picks what to melt.
+const canMelt = (into, id) => ITEMS[id].slot === ITEMS[into].slot && (id === into ? copies(id) > 1 : spare(id));
+const meltGain = (into, id) => id === into ? 1 : 1 + (upLv(id) >> 1);
+const meltTo = (into, id) => Math.min(MAX_UP, upLv(into) + meltGain(into, id));
+// items that can be melted into `into`, one entry per distinct item, best fodder (lowest worth) first
+function meltList(into) {
+  return [...new Set(CH.inv)].filter(id => ITEMS[id] && EMPTY[ITEMS[id].slot] !== id && canMelt(into, id))
+    .sort((a, b) => (a === into ? -1 : b === into ? 1 : 0) || ITEMS[a].rar - ITEMS[b].rar || upLv(a) - upLv(b));
 }
-const canMelt = (into, id) => ITEMS[id].slot === ITEMS[into].slot && (id !== into || copies(id) > 1) && spare(id);
+function openCombine(into) {
+  const back = menu.kind === 'combine' ? menu.bagBack : menu.back;
+  if (upLv(into) >= MAX_UP) return bagMsg('ALREADY +' + MAX_UP, true);
+  menu = { kind: 'combine', title: 'COMBINE', into, sel: 0, top: 0, items: [], list: meltList(into), res: null, bagBack: back,
+    back: () => openBag(back, into) };
+  sfx('pick');
+}
 function combine(into, id) {
-  menu.comb = null;
-  if (!canMelt(into, id)) return bagMsg(id === into ? 'NEED A SECOND COPY' : ITEMS[id].slot !== ITEMS[into].slot ? 'MUST BE THE SAME KIND' : 'TAKE IT OFF FIRST', true);
-  const gain = 1 + (upLv(id) >> 1);
-  takeOne(id); CH.up[into] = Math.min(MAX_UP, upLv(into) + gain); fixDur(into);
-  refreshBag(into); bagMsg(gear(into).name + '!'); sfx('levelup'); save();
+  if (!CH.inv.includes(into) || !CH.inv.includes(id) || !canMelt(into, id)) { sfx('err'); return false; }
+  if (upLv(into) >= MAX_UP) { sfx('err'); return false; }
+  const from = upLv(into), before = itemLine(into), to = meltTo(into, id), lost = gear(id).name;
+  takeOne(id); CH.up[into] = to; fixDur(into);
   if (P) { P.hp = Math.min(P.hp, maxHP()); P.stam = Math.min(P.stam, maxST()); }
+  sfx('levelup'); save();
+  return { name: gear(into).name, from, to, before, after: itemLine(into), lost, kg: ITEMS[id].kg, t: 0 };
+}
+// combine screen input: pick fodder (preview), pick it again or press COMBINE to melt it
+function combPick(i) {
+  const m = menu;
+  if (m.res) { m.res = null; return; }
+  if (!m.list[i]) return;
+  if (m.sel !== i) { m.sel = i; sfx('pick'); return; }
+  combDo();
+}
+function combDo() {
+  const m = menu, id = m.list[m.sel];
+  if (m.res) { m.res = null; return; }
+  if (!id) { sfx('err'); m.msg = 'NOTHING TO MELT'; m.msgT = 90; return; }
+  const r = combine(m.into, id); if (!r) { m.msg = upLv(m.into) >= MAX_UP ? 'ALREADY +' + MAX_UP : 'CAN NOT MELT THAT'; m.msgT = 90; return; }
+  m.res = r; m.list = meltList(m.into); m.sel = clamp(m.sel, 0, Math.max(0, m.list.length - 1));
 }
 // Altars (every third floor): turn rune dust into new gear, or temper worn gear
 const CRAFT_COST = [15, 40, 100, 250];
@@ -2939,9 +2996,9 @@ function temper(sl) {
 // Controls screen: shown once when a new game starts, and from the pause menu.
 const HELP_KEYS = [['MOVE', 'A D OR ARROWS'], ['JUMP', 'SPACE OR W'], ['ATTACK', 'J OR LEFT CLICK. HOLD FOR HEAVY'], ['BLOCK', 'K OR RIGHT CLICK. LATE BLOCK PARRIES'],
   ['ROLL', 'L OR SHIFT'], ['HEAL', 'Q DRINKS A FLASK'], ['USE', 'E AT BONFIRES, CHESTS AND ALTARS'], ['FIREBALL', 'F, AFTER THE FIRST JARL'], ['DROP DOWN', 'S ON A LEDGE'],
-  ['BAG / MENU', 'I / ESC.  IN BAG: C COMBINE, X SALVAGE'], ['SOUND / VIEW', 'M / V'], ['GAMEPAD', 'A JUMP B ROLL X ATK Y HEAL LB BLOCK RB FIRE']];
+  ['BAG / MENU', 'I / ESC.  BAG: ENTER OR RIGHT CLICK = ACTIONS'], ['SOUND / VIEW', 'M / V'], ['GAMEPAD', 'A JUMP B ROLL X ATK Y HEAL LB BLOCK RB FIRE']];
 const HELP_TOUCH = [['MOVE', 'LEFT PAD'], ['ATK', 'TAP. HOLD FOR HEAVY'], ['BLOCK', 'HOLD. LATE BLOCK PARRIES'], ['ROLL', 'DODGE THROUGH HITS'], ['HEAL', 'DRINK A FLASK'],
-  ['JUMP', 'TAP. HOLD TO JUMP HIGHER'], ['USE', 'BONFIRES, CHESTS, ALTARS. DROP FROM LEDGES'], ['FIRE', 'FIREBALL, AFTER THE FIRST JARL'], ['BAG', 'TOP BUTTON. WEAR, COMBINE, SALVAGE'], ['ALTAR', 'EVERY 3RD FLOOR. CRAFT GEAR FROM DUST'], ['MENU', 'TOP BUTTON. PAUSE, STATS, QUIT']];
+  ['JUMP', 'TAP. HOLD TO JUMP HIGHER'], ['USE', 'BONFIRES, CHESTS, ALTARS. DROP FROM LEDGES'], ['FIRE', 'FIREBALL, AFTER THE FIRST JARL'], ['BAG', 'TOP BUTTON. TAP AN ITEM TWICE FOR ACTIONS'], ['ALTAR', 'EVERY 3RD FLOOR. CRAFT GEAR FROM DUST'], ['MENU', 'TOP BUTTON. PAUSE, STATS, QUIT']];
 function openHelp(from) {
   const back = from || closeMenu;
   menu = { kind: 'help', title: 'CONTROLS', sel: 0, items: [{ label: 'GOT IT', act: back }], back };
@@ -2987,18 +3044,33 @@ function uiKey(k) {
     else if (k === 'right' || k === 'down') { classSel = (classSel + 1) % 3; sfx('pick'); }
     else if (k === 'ok') startNewChar(CLASS_KEYS[classSel]);
     else if (k === 'back') toTitle();
+  } else if (state === 'menu' && menu && menu.kind === 'bag' && menu.act) {
+    const n = actRows(menu.act.id).length, a = menu.act;
+    if (k === 'up' || k === 'left') { a.sel = (a.sel + n - 1) % n; sfx('pick'); }
+    else if (k === 'down' || k === 'right') { a.sel = (a.sel + 1) % n; sfx('pick'); }
+    else if (k === 'ok') runAct(a.sel);
+    else if (k === 'back') { if (a.confirm) { a.confirm = false; a.sel = 2; } else closeActs(); sfx('pick'); }
+    else if (k === 'salvage' && a.confirm) runAct(0);
   } else if (state === 'menu' && menu && menu.kind === 'bag') {
-    const n = menu.list.length;
+    const n = menu.list.length, id = menu.list[menu.sel];
     if (k === 'left') menu.sel = (menu.sel + n - 1) % n;
     else if (k === 'right') menu.sel = (menu.sel + 1) % n;
     else if (k === 'up') menu.sel = Math.max(0, menu.sel - BAG_COLS);
     else if (k === 'down') menu.sel = Math.min(n - 1, menu.sel + BAG_COLS);
-    else if (k === 'ok') { if (n) bagPick(menu.sel); return; }
-    else if (k === 'combine') { if (menu.comb) { menu.comb = null; bagMsg('COMBINE CANCELLED'); } else if (n) startCombine(menu.list[menu.sel]); return; }
-    else if (k === 'salvage') { if (n) salvage(menu.list[menu.sel]); return; }
-    else if (k === 'back') { if (menu.comb) { menu.comb = null; bagMsg('COMBINE CANCELLED'); } else menu.back(); return; }
+    else if (k === 'ok') { if (n) openActs(); return; }
+    else if (k === 'combine') { if (id) { const r = { ok: upLv(id) < MAX_UP && meltList(id).length > 0 }; if (r.ok) openCombine(id); else bagMsg(upLv(id) >= MAX_UP ? 'ALREADY +' + MAX_UP : 'NO SPARE ' + SLOT_NAME[ITEMS[id].slot] + ' TO MELT INTO IT', true); } return; }
+    else if (k === 'salvage') { if (id) openActs(true); return; }
+    else if (k === 'back') { menu.back(); return; }
     else return;
-    menu.salv = null; bagScroll(); sfx('pick');
+    if (!n) menu.sel = 0;
+    bagScroll(); sfx('pick');
+  } else if (state === 'menu' && menu && menu.kind === 'combine') {
+    const m = menu, n = m.list.length;
+    if (m.res && k !== 'back') { m.res = null; sfx('pick'); return; }
+    if (k === 'left' || k === 'up') { if (n) m.sel = (m.sel + n - 1) % n; sfx('pick'); }
+    else if (k === 'right' || k === 'down') { if (n) m.sel = (m.sel + 1) % n; sfx('pick'); }
+    else if (k === 'ok' || k === 'combine') combDo();
+    else if (k === 'back') m.back();
   } else if (state === 'menu' && menu) {
     const n = menu.items.length;
     if (k === 'up' || k === 'left') { menu.sel = (menu.sel + n - 1) % n; sfx('pick'); }
@@ -3008,8 +3080,12 @@ function uiKey(k) {
   } else if (state === 'clear') { if (clearT > 50) { enterArea(levelIdx + 1); } }
   else if (state === 'win') { if (winT > 70) { if (levelIdx < LEVELS.length - 1) enterArea(levelIdx + 1); else startNG(); } }
 }
-function uiTap(x, y) {
-  for (let i = uiRects.length - 1; i >= 0; i--) { const r = uiRects[i]; if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { r.fn(); return; } }
+// alt = right click: runs a rect's alt action (bag cells open their action menu), anywhere else it closes the action menu
+function uiTap(x, y, alt) {
+  for (let i = uiRects.length - 1; i >= 0; i--) { const r = uiRects[i]; if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+    if (alt) { if (r.alt) r.alt(); else if (menu && menu.act) closeActs(); return; }
+    r.fn(); return; } }
+  if (alt && menu && menu.act) closeActs();
   if (state === 'clear' || state === 'win') uiKey('ok');
 }
 function step() {
@@ -3477,6 +3553,7 @@ function drawMenu() {
   const m = menu, x = 40, w = 240;
   drawTextS(m.title, W / 2, 10, '#f2c14e', 2, 'center');
   if (m.kind === 'bag') return drawBag(m);
+  if (m.kind === 'combine') return drawCombine(m);
   if (m.kind === 'stats') return drawStats(m);
   if (m.kind === 'help') return drawHelp(m);
   if (m.kind === 'level') {
@@ -3577,7 +3654,8 @@ function drawBag(m) {
     durBar(id, cx, y);
     drawText(SLOT_NAME[sl], cx + 10, y + 22, '#8a7a6a', 1, 'center');
     if (inCell(cx, y) && EMPTY[sl] !== id) hov = id;
-    uiRects.push({ x: cx, y, w: 20, h: 20, fn: () => { const j = list.indexOf(id); if (j >= 0) { m.sel = j; bagPick(j); } } });
+    const j = list.indexOf(id);
+    if (j >= 0) uiRects.push({ x: cx, y, w: 20, h: 20, fn: () => bagSelect(j), alt: () => { m.sel = j; bagScroll(); openActs(); } });
   });
   // bag grid, BAG_ROWS rows at a time; scroll with arrows, wheel or the side buttons
   const x0 = (W - BAG_COLS * 22) / 2 + 1, y0 = 56, top = m.top || 0, wornSeen = new Set();
@@ -3587,17 +3665,14 @@ function drawBag(m) {
     if (!id) { cellBox(cx, cy, 20, '#2a1c20', 'rgba(20,12,16,.6)'); continue; }
     const it = ITEMS[id], worn = isWorn(id) && !wornSeen.has(id);
     if (worn) wornSeen.add(id);
-    const bad = m.comb && !canMelt(m.comb, id), tgt = m.comb === id && i === list.indexOf(id);
-    cellBox(cx, cy, 20, tgt ? '#f2c14e' : i === m.sel ? '#ffffff' : m.comb && !bad ? '#7fe08a' : RAR[it.rar].c, i === m.sel ? 'rgba(242,193,78,.25)' : 'rgba(30,20,24,.9)');
-    if (bad) ctx.globalAlpha = .35;
+    cellBox(cx, cy, 20, i === m.sel ? '#ffffff' : RAR[it.rar].c, i === m.sel ? 'rgba(242,193,78,.25)' : 'rgba(30,20,24,.9)');
     gearIconC(id, cx + 10, cy + 10);
-    ctx.globalAlpha = 1;
     if (worn) drawText('E', cx + 2, cy + 2, '#7fe08a');
     if (upLv(id)) drawText('+' + upLv(id), cx + 19, cy + 14, '#f2c14e', 1, 'right');
     durBar(id, cx, cy);
     if (freshItems.has(id)) { ctx.fillStyle = '#f2c14e'; ctx.fillRect(cx + 16, cy + 2, 2, 2); }
     if (inCell(cx, cy)) hov = id;
-    uiRects.push({ x: cx, y: cy, w: 20, h: 20, fn: () => { if (m.sel === i || !isTouchUI() || m.comb) { m.sel = i; bagPick(i); } else { m.sel = i; m.salv = null; } } });
+    uiRects.push({ x: cx, y: cy, w: 20, h: 20, fn: () => bagSelect(i), alt: () => { m.sel = i; openActs(); } });
   }
   const maxTop = bagMaxTop();
   if (maxTop > 0) {
@@ -3615,16 +3690,85 @@ function drawBag(m) {
     drawText(t.slice(2, -1).map(l => l[0]).slice(0, 2).join('  '), W / 2, 141, '#8fd6c3', 1, 'center');
     const rest = t.slice(2, -1).slice(2); if (rest.length) drawText(rest.map(l => l[0]).join('  '), W / 2, 149, rest[rest.length - 1][1], 1, 'center');
   }
-  // touch buttons for combine and salvage, cooking parts in between
-  uiButton(m.comb ? 'CANCEL' : 'COMBINE', 4, 156, 50, 11, !!m.comb, () => uiKey('combine'));
-  uiButton(sel && m.salv === sel ? 'SURE?' : 'SALVAGE', W - 54, 156, 50, 11, !!(sel && m.salv === sel), () => uiKey('salvage'), sel && m.salv === sel ? '#e8574a' : null);
+  // action button for touch and mouse users, cooking parts beside it
+  uiButton('ACTIONS', 4, 156, 50, 11, false, () => openActs(), sel ? null : '#4a3a3a');
   let bx = W / 2 - 92;
   for (const p of PARTS) { drawPart(p, bx, 156); bx = drawText(p.toUpperCase() + ' ' + (CH.bag[p] || 0), bx + 10, 158, '#d8c8b8') + 10; }
-  if (m.msgT > 0) drawTextS(m.msg, W / 2, 169, '#f2c14e', 1, 'center');
-  else if (m.comb) drawText('PICK THE ITEM TO MELT. C OR ESC: CANCEL', W / 2, 169, '#7fe08a', 1, 'center');
+  if (m.msgT > 0 && !m.act) drawTextS(m.msg, W / 2, 169, m.msgErr ? '#e8574a' : '#f2c14e', 1, 'center');
   else if (over) drawText('TOO HEAVY! SALVAGE OR COMBINE GEAR, OR RAISE STRENGTH', W / 2, 169, '#e8574a', 1, 'center');
-  else drawText(isTouchUI() ? 'TAP TWICE TO WEAR' : 'ENTER: WEAR  C: COMBINE  X: SALVAGE  I: BACK', W / 2, 169, '#8a7a6a', 1, 'center');
+  else drawText(isTouchUI() ? 'TAP: INFO   TAP AGAIN: ACTIONS' : 'CLICK: INFO   RIGHT CLICK OR ENTER: ACTIONS   C X: COMBINE SALVAGE', W / 2, 169, '#8a7a6a', 1, 'center');
+  if (m.act) return drawActs(m);
   if (hov && !isTouchUI()) drawTip(itemTip(hov), ptr.x, ptr.y);
+}
+// action menu over the bag: a backdrop that closes it, then one row per action
+function drawActs(m) {
+  const a = m.act, id = a.id, rows = actRows(id), w = 150, x = (W - w) / 2, h = 22 + rows.length * 14 + 12, y = Math.round((H - h) / 2) - 4;
+  ctx.fillStyle = 'rgba(8,5,7,.55)'; ctx.fillRect(0, 0, W, H);
+  uiRects.push({ x: 0, y: 0, w: W, h: H, fn: closeActs });
+  ctx.fillStyle = 'rgba(14,9,12,.97)'; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = RAR[ITEMS[id].rar].c; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h);
+  uiRects.push({ x, y, w, h, fn: () => {} });
+  gearIconC(id, x + 12, y + 11);
+  drawTextS(gear(id).name, x + 24, y + 5, RAR[ITEMS[id].rar].c);
+  drawText(a.confirm ? 'GONE FOR GOOD. SURE?' : (isWorn(id) ? 'WORN  ' : '') + (copies(id) > 1 ? 'X' + copies(id) + '  ' : '') + ITEMS[id].kg + ' KG', x + 24, y + 13, a.confirm ? '#e8574a' : '#8a7a6a');
+  rows.forEach((r, i) => {
+    const ry = y + 22 + i * 14;
+    uiButton(r.label, x + 6, ry, w - 12, 12, i === a.sel, () => runAct(i), !r.ok ? '#5a4a4a' : r.col || null);
+  });
+  const cur = rows[a.sel];
+  const foot = m.msgT > 0 ? m.msg : cur && !cur.ok ? cur.why : isTouchUI() ? 'TAP OUTSIDE TO CLOSE' : 'ESC OR RIGHT CLICK: CLOSE';
+  drawText(foot, W / 2, y + h - 9, m.msgT > 0 && m.msgErr || (cur && !cur.ok) ? '#e8574a' : '#8a7a6a', 1, 'center');
+}
+// combine screen: the item being upgraded, the items that can melt into it, a preview, then a success card
+const COMB_COLS = 12, COMB_ROWS = 2;
+function drawCombine(m) {
+  const into = m.into, g = gear(into), list = m.list, id = list[m.sel];
+  uiButton('BACK', 4, 4, 34, 13, false, m.back);
+  drawText('DUST ' + CH.dust, 42, 5, '#c88ae8');
+  cellBox(20, 26, 20, RAR[ITEMS[into].rar].c, 'rgba(30,20,24,.9)'); gearIconC(into, 30, 36);
+  drawTextS(g.name, 46, 27, RAR[ITEMS[into].rar].c);
+  drawText(itemLine(into), 46, 35, '#8fd6c3');
+  drawText(upLv(into) >= MAX_UP ? 'MAX +' + MAX_UP + '. NOTHING MORE TO GAIN' : 'MELT ONE ' + SLOT_NAME[ITEMS[into].slot] + ' INTO IT: +1, MORE IF THE MELTED ITEM WAS UPGRADED', 46, 42, '#8a7a6a');
+  const x0 = (W - COMB_COLS * 22) / 2 + 1, y0 = 56;
+  if (m.sel >= (m.top + COMB_ROWS) * COMB_COLS) m.top = ((m.sel / COMB_COLS) | 0) - COMB_ROWS + 1;
+  if (m.sel < m.top * COMB_COLS) m.top = (m.sel / COMB_COLS) | 0;
+  for (let c = 0; c < COMB_COLS * COMB_ROWS; c++) {
+    const i = c + m.top * COMB_COLS, f = list[i], cx = x0 + (c % COMB_COLS) * 22, cy = y0 + ((c / COMB_COLS) | 0) * 22;
+    if (!f) { cellBox(cx, cy, 20, '#2a1c20', 'rgba(20,12,16,.6)'); continue; }
+    cellBox(cx, cy, 20, i === m.sel ? '#ffffff' : RAR[ITEMS[f].rar].c, i === m.sel ? 'rgba(242,193,78,.25)' : 'rgba(30,20,24,.9)');
+    gearIconC(f, cx + 10, cy + 10);
+    if (upLv(f)) drawText('+' + upLv(f), cx + 19, cy + 14, '#f2c14e', 1, 'right');
+    const n = copies(f) - (f === into || isWorn(f) ? 1 : 0); if (n > 1) drawText('X' + n, cx + 2, cy + 2, '#d8c8b8');
+    uiRects.push({ x: cx, y: cy, w: 20, h: 20, fn: () => combPick(i), alt: () => { m.sel = i; combDo(); } });
+  }
+  if (!list.length) drawTextS('NO SPARE ' + SLOT_NAME[ITEMS[into].slot] + ' LEFT TO MELT', W / 2, 66, '#e8574a', 1, 'center');
+  else if (id) {
+    const to = meltTo(into, id), risky = upLv(id) > 0 || ITEMS[id].rar > ITEMS[into].rar;
+    drawTextS('MELT ' + gear(id).name, W / 2, 104, risky ? '#e8574a' : '#d8c8b8', 1, 'center');
+    drawTextS('RESULT: ' + gear(into, to).name, W / 2, 114, '#f2c14e', 1, 'center');
+    drawText(itemLine(into) + '  >  ' + itemLine(into, to), W / 2, 124, '#7fe08a', 1, 'center');
+    drawText('LOAD -' + ITEMS[id].kg + ' KG' + (risky ? '   THE MELTED ITEM IS ' + (upLv(id) ? 'UPGRADED' : 'RARER') + '!' : ''), W / 2, 133, risky ? '#e8574a' : '#8a7a6a', 1, 'center');
+  }
+  const can = !!id && upLv(into) < MAX_UP;
+  uiButton('COMBINE', W / 2 - 40, 142, 80, 13, can, combDo, can ? '#f2c14e' : '#5a4a4a');
+  if (m.msgT > 0) drawTextS(m.msg, W / 2, 160, '#e8574a', 1, 'center');
+  else drawText(isTouchUI() ? 'TAP: PICK   TAP AGAIN OR COMBINE: MELT' : 'ARROWS: PICK   ENTER: MELT   ESC: BACK', W / 2, 160, '#8a7a6a', 1, 'center');
+  const r = m.res; if (!r) return;
+  // success card
+  r.t++;
+  ctx.fillStyle = 'rgba(8,5,7,.7)'; ctx.fillRect(0, 0, W, H);
+  uiRects.push({ x: 0, y: 0, w: W, h: H, fn: () => { m.res = null; } });
+  const bw = 200, bh = 80, bx = (W - bw) / 2, by = 44;
+  ctx.fillStyle = 'rgba(20,14,10,.97)'; ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = '#f2c14e'; ctx.fillRect(bx, by, bw, 1); ctx.fillRect(bx, by + bh - 1, bw, 1); ctx.fillRect(bx, by, 1, bh); ctx.fillRect(bx + bw - 1, by, 1, bh);
+  for (let k = 0; k < 10; k++) { const a = k * 0.63 + r.t * .05, rr = 26 + (r.t * 1.5 + k * 9) % 40; ctx.fillStyle = k & 1 ? '#f2c14e' : '#fff2c0'; ctx.fillRect(Math.round(bx + 20 + Math.cos(a) * rr * .4 + 0), Math.round(by + 22 + Math.sin(a) * rr * .25), 1, 1); }
+  drawTextS('SUCCESS!', W / 2, by + 6, '#f2c14e', 2, 'center');
+  gearIconC(into, bx + 20, by + 22);
+  drawTextS(r.name, W / 2, by + 26, RAR[ITEMS[into].rar].c, 1, 'center');
+  drawText('+' + r.from + '  >  +' + r.to, W / 2, by + 36, '#f2c14e', 1, 'center');
+  drawText(r.before + '  >  ' + r.after, W / 2, by + 45, '#7fe08a', 1, 'center');
+  drawText('MELTED ' + r.lost + '   LOAD -' + r.kg + ' KG', W / 2, by + 55, '#8a7a6a', 1, 'center');
+  drawText(isTouchUI() ? 'TAP TO CONTINUE' : 'ANY KEY TO CONTINUE', W / 2, by + 67, '#d8c8b8', 1, 'center');
 }
 function drawStats(m) {
   heroIdle(CH.cls, CH.eq); blitHero(44, 112, 1, 0, 3);
