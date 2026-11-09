@@ -153,8 +153,12 @@ async def main():
         # juice: death shatters into sprite pixels, squash and stretch, low HP heartbeat
         n = await ev("(() => { const e = makeEnemy('t', 10, 5); const before = particles.length; shatter(e); return particles.length - before; })()")
         check("dead enemy shatters into its pixels", n > 40, f"{n} pixels")
-        sq = await ev("(() => { const e = makeEnemy('t', 10, 5); startAtk(e, { wind: 20, act: 10, rec: 10 }); e.t2 = 5; const a = enemyScale(e); e.st = 'act'; e.t2 = 10; const b = enemyScale(e); e.st = 'idle'; e.flash = 0; e.land = 0; const c = enemyScale(e); return [a[0] > 1 && a[1] < 1, b[0] < 1 && b[1] > 1, c[0] === 1 && c[1] === 1]; })()")
+        sq = await ev("(() => { const e = makeEnemy('t', 10, 5); startAtk(e, { wind: 20, act: 10, rec: 10 }); e.t2 = 5; const a = enemyScale(e); e.st = 'act'; e.t2 = 10; const b = enemyScale(e); e.st = 'idle'; e.atk = null; e.flash = 0; e.land = 0; e.t = 0; const c = enemyScale(e); return [a[0] > 1 && a[1] < 1, b[0] < 1 && b[1] > 1, c[0] === 1 && c[1] === 1]; })()")
         check("enemy squash on wind-up, stretch on strike", sq == [True, True, True], str(sq))
+        lf = await ev("(() => { const f = legFrames(SPR.thrall); const px = c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let s = ''; for (let i = 3; i < d.length; i += 4) s += d[i] ? 1 : 0; return s; }; return [px(f[0].c[0]) !== px(SPR.thrall.c[0]), px(f[0].c[0]) !== px(f[1].c[0])]; })()")
+        check("enemy walk cycle frames differ", lf == [True, True], str(lf))
+        n = await ev("(() => { const b = particles.length; const s = state; die(); const n = particles.length - b; return [n, fadeT]; })()")
+        check("hero shatters on death", n[0] > 60, str(n))
         check("low HP heartbeat", await ev("(() => { const s = P.state, h = P.hp; P.state = 'free'; P.hp = 1; const a = lowHP(); P.hp = maxHP(); const b = lowHP(); P.state = s; P.hp = h; return a && !b; })()"))
         # 100 floors: every floor builds, has a bonfire, mobs, and an exit or a boss
         n = await ev("""(() => { let bad = []; for (let i = 0; i < LEVELS.length; i++) { buildLevel(i);
