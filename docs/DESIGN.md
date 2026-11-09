@@ -14,7 +14,9 @@
 - Parry: block raised within the shield's parry window (5 to 11 frames) when a parryable hit lands. Enemy staggers 80 frames; next hit is a riposte for 3x damage.
 - Roll: 18 stamina, i-frames depend on armor weight (light / mid / heavy).
 - Poise: enemies stagger when poise damage exceeds their poise.
-- Fireball: unlocked by beating the Jarl. 30 stamina, 24 frame cast, flies straight, 34 damage (scales with STR), 20 poise damage. Shieldbearers block it from the front, glowing wisps ignore it.
+- Fireball: learned for 600 XP at a bonfire (MAGIC) or free by beating the Jarl. 30 stamina, flies straight, 34 damage (scales with STR), 20 poise damage. Shieldbearers block it from the front, glowing wisps ignore it.
+- Charge: hold FIRE. Full charge takes 60 steps and up to 12 more stamina; walk slowly while charging, roll cancels. Charge c (0 to 1) gives size 6 to 12 px, damage x(1 + 1.5c), speed 3.4 + c, poise 20 x(1 + 2c), burn 40 x(1 + c). A tap throws a plain fireball.
+- Magic skills (bonfire, MAGIC, paid in XP): EMBER (3 ranks, +25% damage each), KINDLE (3, full charge 12 steps sooner each), FOCUS (3, -15% stamina each), INFERNO (2, a full charge bursts for half damage in 30 / 42 px), TWIN FLAME (1, a full charge throws three fireballs at 70% damage). Saved in `CH.sk`.
 - Flasks: 3 (4 after the Jarl). Heal 45% max HP, slow to drink. Potions refill one flask, or heal 35% when full.
 - Movement: walk about 47 px/s with slow start and stop. Turning in the air is not possible and air steering is weak, so jumps commit. Heavier gravity (0.34) and a stronger jump (5.6) keep the same reach (about 39 px tap, 46 px held) with less hang time. Landing slows you for 4 frames, a long fall for 14.
 

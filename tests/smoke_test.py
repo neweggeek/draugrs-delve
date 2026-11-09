@@ -124,6 +124,27 @@ async def main():
         await pg.keyboard.press("KeyF"); await pg.wait_for_timeout(700)
         check("fireball casts after the Jarl", await ev("window.__fb"))
         check("fireball damages enemy", await ev("window.__tgt.hp < window.__tgt.maxhp"), str(await ev("[window.__tgt.hp, window.__tgt.maxhp]")))
+        # charged fireball: hold F, the shot grows and hits harder; a tap stays small
+        await ev("for (const e of __dd.enemies) e.dead = true; __dd.projs.length = 0; __dd.P.stam = 999; __dd.P.state = 'free'; __dd.P.face = 1")
+        await pg.wait_for_timeout(300)
+        await pg.keyboard.down("KeyF"); await pg.wait_for_timeout(1400)
+        n = await ev("[__dd.P.state, __dd.P.t]")
+        await pg.keyboard.up("KeyF"); await pg.wait_for_timeout(150)
+        n2 = await ev("__dd.projs.filter(p => p.kind === 'fireball').map(p => [p.w, p.dmg, !!p.full])")
+        check("holding fire charges a big fireball", n[0] == 'charge' and n2 and n2[0][0] == 12 and n2[0][2], str([n, n2]))
+        n = await ev("""(() => { castFire(0); const s = __dd.projs[__dd.projs.length - 1]; castFire(1); const b = __dd.projs[__dd.projs.length - 1]; return [s.w, s.dmg, b.w, b.dmg]; })()""")
+        check("full charge hits far harder than a tap", n[0] == 6 and n[2] == 12 and n[3] > n[1] * 2, str(n))
+        # magic skills: buy with XP at the bonfire, ranks change the spell
+        n = await ev("""(() => { CH.beat = false; CH.sk = {}; CH.xp = 0; menu = { msg: '' }; learn('fire'); const a = hasFire();
+          CH.xp = 600; learn('ember'); const b = CH.sk.ember || 0; learn('fire'); const c = hasFire(), x = CH.xp;
+          castFire(0); const d0 = __dd.projs[__dd.projs.length - 1].dmg; CH.xp = 500; learn('ember'); castFire(0); const d1 = __dd.projs[__dd.projs.length - 1].dmg;
+          CH.xp = 99999; learn('twin'); learn('blast'); const n0 = __dd.projs.length; castFire(1); const tw = __dd.projs.length - n0;
+          CH.sk.kindle = 3; const cf = chargeFull(); CH.sk.focus = 3; const fc = fireCost(); learn('kindle'); menu = null;
+          return [a, b, c, x, d1 > d0, tw, cf, fc, CH.sk.kindle]; })()""")
+        check("magic skills: fireball bought with XP, ranks boost it", n == [False, 0, True, 0, True, 3, 24, 17, 3], str(n))
+        n = await ev("(() => { openBonfire('BONFIRE'); const i = menu.items.findIndex(x => x.label === 'MAGIC'); menu.items[i].act(); return [menu.kind, menu.items.length]; })()")
+        check("bonfire has a MAGIC menu with every skill", n == ['magic', 7], str(n))
+        await ev("closeMenu(); __dd.projs.length = 0")
 
         # boss: leap to ledge, then kill for the win screen
         await ev("__dd.newGame('knight',9)"); await pg.wait_for_timeout(200)
