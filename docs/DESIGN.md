@@ -37,6 +37,13 @@
 ## View
 - 3D by default: tiles extruded in depth, back wall far behind, off-axis camera above the action so floors and ledge tops show. Sprites stay flat pixel art at z = 0. V or the 2D / 3D button switches to the flat view.
 
+## Feel
+- Hits: hitstop, screen shake, sparks, damage numbers. Enemies flash white on hit.
+- Enemies squash on wind-up, stretch on the strike, squash on landing and when hit.
+- Dead enemies break into their own sprite pixels, which bounce on the floor.
+- Hero kicks up dust on jump, landing and roll.
+- Below 25% HP: red screen edges throb with a heartbeat sound.
+
 ## Music
 - Title: "dungeon_music_preview.mp3" streamed from `docs/music`. Falls back to generated music if the file is missing (single-file artifact).
 - Areas: generated live. Seeded chord walk per area (key, mode, tempo, filter), a motif that mutates each phrase, drone, pad, bells, drips, echo.
