@@ -28,6 +28,25 @@
 9. Shieldbearer: blocks all frontal light hits, turns slowly. Heavy breaks guard; parry the bash.
 10. Draugr Jarl: 380 HP. Two-hit combo, red charge into the wall (stuns him), frost waves, leaps onto ledges. Phase 2 at 50%: faster, double waves, summons two thralls.
 
+## Every mob has a rule (strategy)
+- Crypt Rat: PACK. A rat near another rat winds up and recovers fast; alone it is slow. A hurt rat squeals and wakes rats nearby. Lure one away.
+- Bone Bat: EVASIVE. Melee misses it in the air. Roll the dive, hit it while dazed, or burn it.
+- Skeleton Thrall: REASSEMBLES. The first death leaves a bone pile that rises at half HP after about 4 s. Light hits bounce; a heavy or a fireball crushes it.
+- Skull Archer: block late (parry timing) to reflect an arrow back for heavy damage.
+- Grave Spider: below 45% HP it climbs its thread and heals up to 80%. Finish it fast.
+- Ember Slime: fire feeds it (fireball heals it).
+- Torch Wisp: cannot be hurt while glowing.
+- Draugr Shambler: does not flinch while winding up (no poise damage). Hits during the recovery after its red slam do double damage.
+- Shieldbearer: blocks frontal light hits. Heavy breaks the guard.
+- Green Slime (g): poison hop and poison puddles. Heals quickly when not hit for under 2 s. Kill it in one push.
+- Blue Slime (u): ice skin. Light hits do a quarter damage and no poise; heavy hits do 1.25x and double poise; fire 1.5x. Lands on ice that freezes your feet (slow, no roll).
+- Red Slime (v): quick double hops. Below 35% HP it swells for 80 frames (red flash, cannot be hurt) and bursts for 30 damage around it. Roll away.
+- Spider Warrior (W): two-slash parryable combo, pounce from range, and a counter STANCE. A frontal hit on the stance triggers a red riposte; a hit from behind does double, a fireball breaks it.
+- Spider Queen (Q): mini boss on floors 17, 27, 37 and so on. Lays two eggs (hatch into spiderlings). While any egg lives she takes a quarter damage. Web fan (block), parryable bite, red leg sweep along the floor (jump or roll).
+
+## Mob movement
+- Walking mobs hop walls one or two tiles high (so they leave dips), jump up to a ledge you stand on, and step down when you are below them. The Jarl keeps his own leap.
+
 ## Floors
 - 100 floors. 1 to 10 are hand built (one lesson each, Jarl on 10). 11 to 100 are generated from a seed, so each floor is the same every visit.
 - Deeper floors: wider, more mobs, mixed bodies, enemy HP +3.5 and damage +1.8 per floor past 10.
