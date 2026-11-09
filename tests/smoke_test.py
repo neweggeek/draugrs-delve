@@ -242,7 +242,7 @@ async def main():
         await pg.click("#menuB"); await pg.wait_for_timeout(80)
         check("touch MENU button pauses", await ev("__dd.state === 'menu' && __dd.menu.kind === 'pause'"))
         await ev("closeMenu(); document.body.classList.remove('is-touch'); resize()")
-        n = await ev("""(() => { const bad = []; for (let i = 10; i < LEVELS.length; i++) { loadLevel(i);
+        n = await ev("""(() => { const bad = []; for (let i = 0; i < LEVELS.length; i++) { loadLevel(i);
           for (const e of enemies) { const tx = Math.floor((e.x + e.w / 2) / 16); if (rectSolid(e.x, e.y, e.w, e.h) || (e.grav && Math.floor((e.y + e.h + 1) / 16) === 9 && !isSolid(tx, 9))) bad.push(i + 1); } }
           loadLevel(0); return bad; })()""")
         check("no monster spawns stuck in a pit or wall", n == [], str(n))
@@ -329,6 +329,29 @@ async def main():
         check("wisps shrug off burn, spiders freeze", n == [False, True], str(n))
         check("old save gets crafting fields", await ev("""(() => { const c = newChar('knight'); delete c.up; delete c.dust; localStorage.setItem('dd2', JSON.stringify(c)); const s = loadSave(); return s.dust === 0 && typeof s.up === 'object'; })()"""))
         check("walk cycle has 4 distinct frames", await ev("new Set([1,2,3,4].map(i => HERO.legs['walk' + i])).size === 4"))
+        # weighty combat, longer areas, rest shrines, more music
+        await ev("__dd.newGame('knight',0); for (const e of __dd.enemies) e.dead = true; __dd.tp(300, 130)"); await pg.wait_for_timeout(300)
+        n = await ev("(() => { const s = __dd.P.stam; __dd.P.jbuf = 5; __dd.P.coyote = 5; return s; })()"); await pg.wait_for_timeout(100)
+        check("jumping costs stamina", await ev("__dd.P.stam") < n, str([n, await ev("__dd.P.stam")]))
+        await pg.wait_for_timeout(1500)
+        await ev("""window.__cmb = 0; const L = () => { window.__cmb = Math.max(window.__cmb, __dd.P.combo || 0); if (window.__cmb < 2) requestAnimationFrame(L); }; L();
+          window.__ci = setInterval(() => { dispatchEvent(new KeyboardEvent('keydown', {code:'KeyJ'})); setTimeout(() => dispatchEvent(new KeyboardEvent('keyup', {code:'KeyJ'})), 40); }, 120);""")
+        await pg.wait_for_timeout(2500); await ev("clearInterval(window.__ci); __dd.P.stam = 99")
+        check("light swings chain into a 3 hit combo", await ev("window.__cmb") == 2, str(await ev("window.__cmb")))
+        check("areas are longer", await ev("LEVELS[0].w >= 70 && LEVELS.slice(10).every(L => L.arena || L.w >= 70)"))
+        check("every area but boss halls has a rest shrine", await ev("LEVELS.every(L => L.arena ? !L.rest : L.rest > 0)"))
+        await ev("__dd.newGame('knight',0); __dd.P.hp = 50; __dd.tp(SPAWNS.shrine.x + 3, SPAWNS.shrine.y + 2)"); await pg.wait_for_timeout(300)
+        check("shrine zone is safe", await ev("resolveHit({x: __dd.P.x + 20, w: 4}, {dmg: 30}) === 'none' && __dd.P.hp >= 50"))
+        check("rest zone plays the shrine song", await ev("Music.cur === SONGS.rest"))
+        await pg.keyboard.press("KeyE"); await pg.wait_for_timeout(150)
+        check("resting at the shrine opens the menu", await ev("__dd.state === 'menu' && __dd.menu.title === 'REST SHRINE' && __dd.CH.cp === 0"))
+        await pg.keyboard.press("Escape"); await pg.wait_for_timeout(80)
+        await ev("loadLevel(0)")
+        check("wake at the shrine after resting there", await ev("Math.abs(__dd.P.x - SPAWNS.shrine.x) < 8"))
+        n = await ev("""(() => { const e = makeEnemy('t', 0, 0); e.x = SAFE.x + 20; e.y = SPAWNS.shrine.y + 16 - e.h; enemies.push(e); updateWorld(); return !overlap(e, SAFE); })()""")
+        check("monsters are pushed out of the shrine zone", n)
+        await ev("__dd.CH.cp = -1; loadLevel(0)")
+        check("more area themes", await ev("GEN.length >= 16"))
         check("version watermark is set", await ev("typeof VERSION === 'string' && /^V\\d+/.test(VERSION)"))
         check("no page errors", not errs, "; ".join(errs[:3]))
         await b.close()

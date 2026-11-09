@@ -56,7 +56,7 @@ body.is-touch.portrait #rot{display:block}
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V11 2026-11-09 NEW MOBS';
+const VERSION = 'V13 2026-11-09 WEIGHTY COMBAT';
 const W = 320, H = 176, TS = 16;
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -461,6 +461,20 @@ const LEVELS = [
    ['T',3,3],['T',10,3],['T',17,2],['T',23,3],
    ['=',9,7,3],['=',14,5,3],['=',20,7,3],['J',19,8]]}
 ];
+// Longer areas: each hand-made area gets a rest shrine past its first half, then a mirrored second half.
+// Shrine zone (cols rest-3 .. rest+3) is kept clear; ops landing in it are dropped.
+for (const L of LEVELS) {
+  if (L.arena) continue;
+  const half = L.w - 3, rest = half + 2, w = half * 2 + 8, more = [];
+  for (const op of L.ops) {
+    const [ch, x, y, cnt = 1, hh = 1] = op;
+    if (ch === 'G' || x < 8) continue;
+    const nx = rest + 3 + (half - (x + cnt - 1)) + 1;
+    if (nx <= rest + 3 || nx + cnt > w - 4) continue;
+    more.push([ch, nx, y, cnt, hh]);
+  }
+  L.w = w; L.rest = rest; L.ops = L.ops.concat(more);
+}
 // Mix-and-match traits. Any body (rat, thrall, ...) can carry one or two. The first trait tints the sprite.
 const TRAITS = {
   iron:   { name: 'IRON',   col: '#9aaabb', hp: 1.6, poise: 2, xp: 1.4 },
@@ -492,12 +506,14 @@ function genFloor(n) {
   // deeper floors unlock new looks: frozen halls past 30, the abyss past 60
   const themes = ['hall', 'ossuary', 'forge', 'barrow'].concat(n >= 30 ? ['ice'] : [], n >= 60 ? ['abyss', 'abyss'] : []);
   const theme = pick(themes), low = theme === 'barrow';
-  const w = Math.min(64, 40 + (n / 6 | 0) * 2), ops = [], mods = {};
+  const w = Math.min(110, 70 + (n / 6 | 0) * 2), rest = w >> 1, ops = [], mods = {};
   let chest = false;
   const busy = new Set(); // dip and pillar columns: no ground mob spawns there (they got stuck)
+  const inRest = (a, b) => b >= rest - 4 && a <= rest + 4; // the rest shrine zone in the middle stays empty
   for (let x = 7; x < w - 3; x += ri(6, 9)) ops.push(['T', x, low ? 4 : 3]);
   // chunks: ledge (maybe with a second tier), stairs up to a high perch, a dip with shards, a stone pillar, a chest nook
   for (let x = 9; x < w - 10;) {
+    if (inRest(x, x + 9)) { x = rest + 5; continue; }
     const r = R(); let used;
     if (r < .32) {
       used = ri(3, 5); ops.push(['=', x, 7, used], ['c', x + 1, 6, used - 2]);
@@ -512,12 +528,13 @@ function genFloor(n) {
     x += used + ri(2, 4);
   }
   for (let i = n > 40 ? 2 : 1; i > 0; i--) ops.push(['p', ri(12, w - 8), 8]);
-  const pool = BODIES.slice(0, Math.min(BODIES.length, 4 + (n / 3 | 0))), count = Math.min(14, 5 + (n / 9 | 0)), stepX = (w - 19) / count;
+  const pool = BODIES.slice(0, Math.min(BODIES.length, 4 + (n / 3 | 0))), count = Math.round(Math.min(14, 5 + (n / 9 | 0)) * w / 52), stepX = (w - 19) / count;
   const p1 = Math.min(.75, .2 + (n - 10) * .008), p2 = n > 40 ? Math.min(.4, (n - 40) * .008) : 0;
   for (let i = 0; i < count; i++) {
     const ch = pick(pool), y = ch === 'b' || ch === 'w' ? ri(2, 5) : ch === 's' ? (low ? 3 : 1) : 8;
     let x = Math.round(11 + i * stepX + R());
     for (let k = 0; y === 8 && k < 8 && x < w - 6 && (busy.has(x - 1) || busy.has(x) || busy.has(x + 1)); k++) x++;
+    if (inRest(x - 1, x + 1)) continue;
     ops.push([ch, x, y]);
     const tr = [];
     if (n >= 14 && R() < .1) { tr.push('elite', pick(TRAIT_KEYS)); let t2 = pick(TRAIT_KEYS); while (t2 === tr[1]) t2 = pick(TRAIT_KEYS); tr.push(t2); }
@@ -539,22 +556,28 @@ function genFloor(n) {
     tip = 'THE SPIDER QUEEN NESTS HERE. SMASH HER EGGS FIRST.';
   }
   // odd floors run right to left: bonfire on the right, exit on the left
-  return { name: pick(ADJ) + ' ' + pick(NOUN), mob: pool[pool.length - 1], theme, w, tip, ops, mods, gen: true, flip: n % 2 === 1 };
+  return { name: pick(ADJ) + ' ' + pick(NOUN), mob: pool[pool.length - 1], theme, w, rest, tip, ops, mods, gen: true, flip: n % 2 === 1 };
 }
 for (let n = LEVELS.length; n < FLOORS; n++) LEVELS.push(genFloor(n));
 const MH = 11;
-let MW = 40, MAP, SPAWNS, LV, ARENA_COL = -1, ARENA_X = 0;
+let MW = 40, MAP, SPAWNS, LV, ARENA_COL = -1, ARENA_X = 0, SAFE = null;
 const hasAltar = n => n % 3 === 2 && !LEVELS[n].arena; // a rune altar on every third floor
 function buildLevel(n) {
   LV = LEVELS[n]; MW = LV.w;
   MAP = [...Array(MH)].map(() => Array(MW).fill('.'));
-  SPAWNS = { torches: [], coins: [], potions: [], mobs: [], start: null, exit: null, bonfire: null, chest: null, altar: null };
+  SPAWNS = { torches: [], coins: [], potions: [], mobs: [], start: null, exit: null, bonfire: null, chest: null, altar: null, shrine: null };
+  SAFE = null;
   const low = LV.theme === 'barrow';
   const ops = [['#',0,0,MW,low ? 3 : 1],['#',0,9,MW,2],['#',0,1,1,8],['#',MW - 1,1,1,8],['F',4,8]].concat(LV.ops);
   if (!LV.arena) ops.push(['X', MW - 3, 8]);
   if (hasAltar(n)) ops.push(['A', 7, 8]);
   for (const [ch, x, y, cnt = 1, hh = 1] of ops)
     for (let j = 0; j < hh; j++) for (let i = 0; i < cnt; i++) MAP[y + j][x + i] = ch;
+  if (LV.rest) { // rest shrine: clear the zone (keep floor and ceiling), torches either side
+    const top = low ? 3 : 1;
+    for (let y = top; y < 9; y++) for (let x = LV.rest - 3; x <= LV.rest + 3; x++) MAP[y][x] = '.';
+    MAP[8][LV.rest] = 'R'; MAP[top + 2][LV.rest - 3] = 'T'; MAP[top + 2][LV.rest + 3] = 'T';
+  }
   if (LV.flip) for (const row of MAP) row.reverse();
   ARENA_COL = LV.arena ? LV.arena : -1; ARENA_X = LV.arena ? LV.arena * TS : 0;
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
@@ -567,11 +590,14 @@ function buildLevel(n) {
     else if (ch === 'X') SPAWNS.exit = { x: x * TS, y: (y - 1) * TS, w: 16, h: 32 };
     else if (ch === 'F') SPAWNS.bonfire = { x: x * TS, y: y * TS, w: 16, h: 16 };
     else if (ch === 'A') SPAWNS.altar = { x: x * TS, y: y * TS, w: 16, h: 16 };
+    else if (ch === 'R') { SPAWNS.shrine = { x: x * TS, y: y * TS, w: 16, h: 16 }; SAFE = { x: (x - 3) * TS, y: 0, w: 7 * TS, h: MH * TS }; }
     else if (ch === 'G') SPAWNS.chest = { x: x * TS + 2, y: y * TS + 7, w: 12, h: 9, item: LV.chest };
     else SPAWNS.mobs.push({ ch, tx: x, ty: y, tr: (LV.mods || {})[(LV.flip ? MW - 1 - x : x) + ',' + y] });
   }
-  SPAWNS.start = { x: SPAWNS.bonfire.x + 3, y: SPAWNS.bonfire.y + 2 };
+  const at = CH && CH.cp === n && SPAWNS.shrine ? SPAWNS.shrine : SPAWNS.bonfire; // rested at the shrine: wake up there
+  SPAWNS.start = { x: at.x + 3, y: at.y + 2 };
 }
+const inSafe = o => !!SAFE && overlap(o, SAFE);
 function isSolid(tx, ty) {
   if (tx < 0 || tx >= MW || ty < 0 || ty >= MH) return true;
   return MAP[ty][tx] === '#';
@@ -964,6 +990,22 @@ const SONGS = {};
     s.snare(1); s.snare(3); s.snare(3.5, .25); s.snare(3.75, .3); s.kick(4, .55); s.hat(4, .12, true);
     SONGS.win = s.done();
   }
+  // Shrine Lullaby: F major, 72 BPM, plays inside a rest zone. Soft harp arps, a slow hymn on top, no drums
+  {
+    const prog = ['F','C','Dm','Bb', 'F','C','Bb','C', 'Dm','Am','Bb','F', 'Gm','C','F','F'];
+    const s = Song(72, prog.length * 4, true);
+    const hymn = [['A5',2],['G5',1],['F5',1],['G5',3],['r',1],['A5',1.5],['Bb5',.5],['A5',1],['F5',1],['D5',3],['r',1],
+      ['C5',1],['F5',1],['A5',1],['C6',1],['Bb5',2],['A5',1],['G5',1],['F5',1],['G5',1],['A5',2],['G5',3],['r',1],
+      ['D6',2],['C6',1],['A5',1],['C6',2],['A5',1],['E5',1],['F5',1],['G5',1],['A5',1],['C6',1],['A5',3],['r',1],
+      ['Bb5',1],['A5',1],['G5',1],['Bb5',1],['A5',1.5],['G5',.5],['E5',2],['F5',4],['r',4]];
+    prog.forEach((c, i) => {
+      const b = i * 4;
+      s.mel(b, arpBar(c, 4, [0,1,2,3,2,1,0,1], .5), { duty: .125, vol: .07, gate: .9, sus: .3 });
+      s.tri(b, [[midi(CHORDS[c][0] + '2'), 4]], .24, .95);
+    });
+    s.mel(8, hymn, { duty: .5, vol: .1, vib: .01, echo: .4, sus: .7 });
+    SONGS.rest = s.done();
+  }
 })();
 // ================= Generative dungeon music =================
 // Each area has its own key, mode, tempo and texture. Bars are generated on the fly from a seeded
@@ -980,7 +1022,14 @@ const GEN = [
   { gen: 1, seed: 71, root: 'B', mode: 'dorian', bpm: 62, cut: 2000, lead: .5, dens: .3, bell: .45, kicks: [], rest: .3 },
   { gen: 1, seed: 83, root: 'C#', mode: 'phrygian', bpm: 54, cut: 1100, lead: .25, dens: .24, bell: .1, kicks: [0], rest: .35 },
   { gen: 1, seed: 97, root: 'D', mode: 'harmonic', bpm: 66, cut: 1400, lead: .125, dens: .34, bell: .2, kicks: [0, 2], rest: .25 },
-  { gen: 1, seed: 101, root: 'E', mode: 'harmonic', bpm: 56, cut: 1200, lead: .25, dens: .22, bell: .3, kicks: [0], rest: .4 }
+  { gen: 1, seed: 101, root: 'E', mode: 'harmonic', bpm: 56, cut: 1200, lead: .25, dens: .22, bell: .3, kicks: [0], rest: .4 },
+  // more area themes for the deeper floors
+  { gen: 1, seed: 113, root: 'G#', mode: 'aeolian', bpm: 60, cut: 2200, lead: .125, dens: .28, bell: .6, kicks: [], rest: .3, arp: 1 },
+  { gen: 1, seed: 127, root: 'F', mode: 'dorian', bpm: 76, cut: 1600, lead: .25, dens: .42, bell: .1, kicks: [0, 1.5, 2], rest: .15 },
+  { gen: 1, seed: 131, root: 'Bb', mode: 'phrygian', bpm: 52, cut: 1000, lead: .5, dens: .2, bell: .25, kicks: [0], rest: .45 },
+  { gen: 1, seed: 149, root: 'A', mode: 'harmonic', bpm: 70, cut: 1800, lead: .125, dens: .36, bell: .35, kicks: [0, 2], rest: .2, arp: 1 },
+  { gen: 1, seed: 157, root: 'D#', mode: 'aeolian', bpm: 64, cut: 1400, lead: .25, dens: .3, bell: .4, kicks: [], rest: .3 },
+  { gen: 1, seed: 163, root: 'C', mode: 'phrygian', bpm: 68, cut: 1250, lead: .5, dens: .34, bell: .15, kicks: [0, 2.5], rest: .25, arp: 1 }
 ];
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const pickR = (r, arr) => arr[(r() * arr.length) | 0];
@@ -1029,6 +1078,12 @@ function genBar(g, t0, spb, bus) {
   }
   if (r() < th.bell) genVoice('tri', note(deg + pickR(r, [0, 2, 4]), 4), t0 + pickR(r, [0, 1, 2, 3]) * beat, beat * 2.5, .05, { bell: 1, att: .005 }, bus);
   for (const kb of th.kicks) triHit(t0 + kb * beat, 120, 42, .11, .16, bus);
+  // fight layer: when monsters are on you, war drums and a low pulse join in
+  if (musicHeat) {
+    for (let q = 0; q < 4; q++) { triHit(t0 + q * beat, 110, 38, .16, .18, bus); noiseHit(t0 + (q + .5) * beat, .035, .05, true, bus); }
+    noiseHit(t0 + 1 * beat, .07, .14, false, bus); noiseHit(t0 + 3 * beat, .07, .14, false, bus);
+    for (let i = 0; i < 8; i++) genVoice('pulse', note(deg, 0) + 12 * (i % 2), t0 + i * beat / 2, beat * .35, .03, { duty: .25, att: .005, sus: .4, rel: .05 }, bus);
+  }
   if (r() < .18) { const dt = t0 + r() * bar; triHit(dt, 1800 + r() * 900, 1200, .025, .06, bus); }   // distant water drip
 }
 function genTick(M) {
@@ -1422,6 +1477,10 @@ const ITEMS = {
   thorshammer:  { slot: 'n', name: "THOR'S HAMMER", rar: 3, loot: true, b: { str: 4, vit: 2 } }
 };
 for (const id in ITEMS) ITEMS[id].rar = ITEMS[id].rar || 0;
+// Pace: every swing winds up longer and recovers longer, so each attack is a commitment you have to plan.
+const PACE = { wind: 1.35, act: 1, rec: 1.3, enemy: 1.15 };
+for (const id in ITEMS) { const it = ITEMS[id]; if (it.slot !== 'w') continue;
+  it.tw = it.tw.map(v => Math.round(v * PACE.wind)); it.tr = it.tr.map(v => Math.round(v * PACE.rec)); it.ta = Math.round(it.ta * PACE.act); }
 const SLOTS = ['w', 's', 'a', 'r', 'n'], SLOT_NAME = { w: 'WEAPON', s: 'SHIELD', a: 'ARMOR', r: 'RING', n: 'AMULET' };
 const EMPTY = { s: 'none', r: 'noring', n: 'noamulet' }; // slots that can be left empty
 const RAR = [{ name: 'COMMON', c: '#d8c8b8' }, { name: 'RARE', c: '#6ec8e8' }, { name: 'EPIC', c: '#c88ae8' }, { name: 'LEGENDARY', c: '#f2c14e' }];
@@ -1508,7 +1567,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem('dd2') || 
   s.bag = s.bag || {}; s.meal = MEALS[s.meal] ? s.meal : null;
   if (s.beat) s.unlocked = Math.max(s.unlocked, 11); // saves from before floors 11 to 100 stopped at 10
   if (s.dex == null) s.dex = CLASSES[s.cls].dex;
-  s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0; s.up = s.up || {}; s.dust = s.dust || 0;
+  s.cp = s.cp ?? -1; s.ng = s.ng || 0; s.deaths = s.deaths || 0; s.time = s.time || 0; s.up = s.up || {}; s.dust = s.dust || 0;
   for (const k in EMPTY) if (!ITEMS[s.eq[k]]) s.eq[k] = EMPTY[k];
   s.inv = s.inv.filter(id => ITEMS[id]); return s; } } catch (e) {} return null; }
 SAVE = loadSave();
@@ -1647,6 +1706,7 @@ addEventListener('resize', resize); resize();
 const isTouchUI = () => document.body.classList.contains('is-touch');
 
 // ================= Game state =================
+let inRestZone = false, musicHeat = 0;
 let state = 'title', frameN = 0, hitstop = 0, shake = 0, deadT = 0, winT = 0, clearT = 0, bannerT = 0, fadeT = 0;
 let P = null, enemies = [], projs = [], hazards = [], pickups = [], particles = [], texts = [], arenaLocked = false, boss = null, bossDeadT = 0;
 let levelIdx = 0, menu = null, titleSel = 0, titleArea = 0, classSel = 0, interact = null, popup = null, newConfirm = false;
@@ -1712,7 +1772,8 @@ function loadLevel(n) {
   projs = []; hazards = []; particles = []; texts = []; popup = null;
   pickups = SPAWNS.coins.map(c => ({ kind: 'shard', x: c.x, y: c.y, w: 8, h: 8, t: rnd(0, 60) }))
     .concat(SPAWNS.potions.map(p => ({ kind: 'flask', x: p.x, y: p.y, w: 8, h: 8, t: 0 })));
-  arenaLocked = false; bossDeadT = 0; hitstop = 0; shake = 0; camX = 0; fadeT = 30;
+  arenaLocked = false; bossDeadT = 0; hitstop = 0; shake = 0; fadeT = 30; inRestZone = false;
+  camX = clamp(P.x + P.w / 2 - W / 2 + P.face * 24, 0, MW * TS - W);
   Music.play(GEN[n % GEN.length]);
 }
 function enterArea(n) { loadLevel(n); state = 'play'; bannerT = 260; clearLatches(); }
@@ -1798,7 +1859,7 @@ function damagePlayer(d, fromX, kb = 1, stagger = true) {
   P.hp -= d; ftext(P.x + P.w / 2, P.y - 4, d, '#e8574a');
   puff(P.x + P.w / 2, P.y + 6, '#c8402a', 6);
   if (stagger) {
-    P.state = 'stag'; P.t = 18; P.charging = false; P.blocking = false;
+    P.state = 'stag'; P.t = 24; P.charging = false; P.blocking = false;
     P.vx = (P.x + P.w / 2 < fromX ? -1 : 1) * 1.8 * kb; P.vy = -1.4; P.iframes = 30; shake = Math.max(shake, 4); hitstop = 4;
   }
   sfx('hurt');
@@ -1820,6 +1881,7 @@ function resolveHit(src, o) {
 function resolveHit0(src, o) {
   if (state !== 'play' || P.state === 'dead') return 'none';
   if (P.iframes > 0) return 'dodge';
+  if (inSafe(P)) return 'none'; // nothing can hurt you at a rest shrine
   const mul = src.isEnemy ? (src.dmgMul || 1) : floorDmg();
   if (mul !== 1) o = Object.assign({}, o, { dmg: o.dmg * mul });
   const scx = src.x + (src.w || 0) / 2, pcx = P.x + P.w / 2;
@@ -1854,10 +1916,12 @@ function die() {
   P.hp = 0; P.state = 'dead'; state = 'dead'; deadT = 0; CH.deaths = (CH.deaths || 0) + 1; sfx('died'); shake = 6;
   puff(cx, P.y + 7, '#6ec8e8', 20, 2);
 }
-function startAttack(heavy) {
+// light swings chained out of a recovery build a 3 hit combo: each link winds up a bit faster and hits harder
+function startAttack(heavy, chain) {
   const w = WPN();
-  P.stam = Math.max(-15, P.stam - (heavy ? w.hc : w.lc)); P.stamDelay = 35;
-  P.state = 'atk'; P.heavy = heavy; P.atkPhase = 'wind'; P.atkT = heavy ? w.tw[1] : w.tw[0]; P.hitSet = new Set();
+  P.combo = !heavy && chain && !P.heavy ? Math.min(2, (P.combo || 0) + 1) : 0;
+  P.stam = Math.max(-15, P.stam - (heavy ? w.hc : w.lc)); P.stamDelay = 45;
+  P.state = 'atk'; P.heavy = heavy; P.atkPhase = 'wind'; P.atkT = Math.round((heavy ? w.tw[1] : w.tw[0]) * (1 - .15 * P.combo)); P.hitSet = new Set();
   const ax = (inp('right') ? 1 : 0) - (inp('left') ? 1 : 0); if (ax) P.face = ax;
 }
 function startRoll(ax) {
@@ -1872,6 +1936,7 @@ function onLedge() {
   let plat = false; for (let tx = x0; tx <= x1; tx++) { if (isSolid(tx, by)) return false; if (isPlat(tx, by)) plat = true; }
   return plat;
 }
+const P_GRAV = .34, JUMP_V = 5.6, JUMP_COST = 8; // jump height = JUMP_V^2 / (2 P_GRAV), about 46px
 const lowHP = () => P.state !== 'dead' && P.hp > 0 && P.hp < maxHP() * .25;
 function attackBox() { const r = WPN().reach + (P.heavy ? 3 : 0); return { x: P.face > 0 ? P.x + P.w - 2 : P.x - r + 2, y: P.y - 4, w: r, h: 20 }; }
 function updatePlayer() {
@@ -1893,12 +1958,14 @@ function updatePlayer() {
   switch (P.state) {
     case 'free': {
       P.blocking = inp('block');
-      const spd = (P.blocking ? .42 : .95) * webMul * slow;
-      if (ax && !P.blocking) P.face = ax;
-      P.vx += (ax * spd - P.vx) * (P.onGround ? .3 : .15);
-      if (P.buf) {
+      const landMul = P.landT > 0 ? .25 : 1;
+      const spd = (P.blocking ? .38 : .78) * webMul * slow * landMul;
+      if (ax && !P.blocking && P.onGround) P.face = ax;
+      // heavy footing: slow to start and stop on the ground, almost no steering in the air
+      P.vx += (ax * spd - P.vx) * (P.onGround ? .2 : .05);
+      if (P.buf && !(P.landT > 0)) {
         const k = P.buf.k;
-        if ((k === 'light' || k === 'heavy') && P.stam > 0) { startAttack(k === 'heavy'); P.buf = null; }
+        if ((k === 'light' || k === 'heavy') && P.stam > 0) { startAttack(k === 'heavy', P.chain > 0); P.buf = null; }
         else if (k === 'roll' && P.onGround && P.stam > 0) { if (P.webT > 0) { ftext(P.x + 5, P.y - 10, 'CAN NOT ROLL', '#e8e8e8'); P.buf = null; } else { startRoll(ax); P.buf = null; } }
         else if (k === 'fire') {
           if (P.stam > 0) { P.state = 'cast'; P.t = 24; P.stam -= FIRE_COST; P.stamDelay = 40; if (ax) P.face = ax; }
@@ -1910,7 +1977,7 @@ function updatePlayer() {
           P.buf = null;
         }
       }
-      if (P.state === 'free' && P.jbuf > 0 && P.coyote > 0) { P.vy = -5.1; P.jumpY = P.y; P.jbuf = 0; P.coyote = 0; P.blocking = false; sfx('jump'); dust(P.x + P.w / 2, P.y + P.h - 1, 4, 4); }
+      if (P.state === 'free' && P.jbuf > 0 && P.coyote > 0 && !(P.landT > 0) && P.stam > 0) { P.stam -= JUMP_COST; P.stamDelay = Math.max(P.stamDelay, 25); P.vy = -JUMP_V; P.jumpY = P.y; P.jbuf = 0; P.coyote = 0; P.blocking = false; sfx('jump'); dust(P.x + P.w / 2, P.y + P.h - 1, 4, 4); }
       break;
     }
     case 'atk':
@@ -1925,7 +1992,8 @@ function updatePlayer() {
       } else {
         P.vx *= .8;
         const full = P.heavy ? w.tr[1] : w.tr[0];
-        if (P.buf && P.atkT <= full * .5 && P.stam > 0) P.state = 'free';
+        // committed: a buffered action only cuts in for the last quarter of the recovery
+        if (P.buf && P.atkT <= full * .25 && P.stam > 0) { P.state = 'free'; P.chain = 8; }
         else if (--P.atkT <= 0) P.state = 'free';
       }
       break;
@@ -1956,9 +2024,11 @@ function updatePlayer() {
   }
   if (P.blocking && !wasBlock) P.blockT = 0; else if (P.blocking) P.blockT++; else P.blockT = 99;
   if (P.stamDelay > 0) P.stamDelay--;
-  else if (P.state !== 'atk' && P.state !== 'roll' && P.state !== 'cast') P.stam = Math.min(maxST(), P.stam + (P.blocking ? .3 : .85) * wt.regen * (CH.meal === 'jelly' ? 1.5 : 1) * (hasFx(P, 'frost') ? .5 : 1));
-  P.vy = Math.min(P.vy + 0.28, 5);
-  // a quick tap still clears a ledge (36px); holding jumps higher (about 46px)
+  else if (P.state !== 'atk' && P.state !== 'roll' && P.state !== 'cast') P.stam = Math.min(maxST(), P.stam + (P.blocking ? .25 : .7) * wt.regen * (CH.meal === 'jelly' ? 1.5 : 1) * (hasFx(P, 'frost') ? .5 : 1));
+  if (P.chain > 0 && P.state !== 'atk') P.chain--;
+  if (P.landT > 0) P.landT--;
+  P.vy = Math.min(P.vy + P_GRAV, 6);
+  // a quick tap still clears a ledge (36px); holding jumps higher (about 46px). Heavier gravity, same reach: short, grounded hops
   if (!inp('jump') && P.vy < -1.5 && P.jumpY !== undefined && P.jumpY - P.y > 36) P.vy = -1.5;
   if (consume('down') && P.onGround && P.state === 'free') {
     const by = Math.floor((P.y + P.h + 1) / TS), x0 = Math.floor(P.x / TS), x1 = Math.floor((P.x + P.w - 0.01) / TS);
@@ -1968,7 +2038,7 @@ function updatePlayer() {
   }
   const wasAir = !P.onGround, fallV = P.vy;
   moveBody(P);
-  if (P.onGround && wasAir && fallV > 2.5) { sfx('land'); dust(P.x + P.w / 2, P.y + P.h - 1, 6, 6); }
+  if (P.onGround && wasAir && fallV > 2.5) { sfx('land'); dust(P.x + P.w / 2, P.y + P.h - 1, 6, 6); if (P.state === 'free') { P.landT = fallV > 5 ? 14 : 6; P.vx *= .4; } }
   if (P.state === 'roll' && P.onGround && P.t % 4 === 0) dust(P.x + P.w / 2 - P.rollDir * 4, P.y + P.h - 1, 1, 3);
   if (lowHP() && frameN % 64 === 0) sfx('beat');
   if (P.onGround) { P.coyote = 6; P.lastGroundY = P.y; } else if (P.coyote > 0) P.coyote--;
@@ -1987,14 +2057,14 @@ function hitEnemy(e, heavy, spell) {
   }
   if (e.ch === 'w' && !e.vuln) { ftext(ecx, e.y - 6, 'NO EFFECT', '#a8a8b0'); sfx('clang'); spark(ecx, e.y + 6, '#f8d048', 4); return; }
   const mr = mobRule(e, heavy, spell, frontal); if (!mr) return; // each mob's own combat rule (see Enemy mechanics)
-  let dmg = (spell ? spell.dmg : (heavy ? w.h : w.l) * dmgMult()) * mr.m, crit = false;
+  let dmg = (spell ? spell.dmg : (heavy ? w.h : w.l * (1 + .15 * (P.combo || 0))) * dmgMult()) * mr.m, crit = false;
   if (e.parried && e.st === 'stag') { dmg *= 3; crit = true; e.parried = false; e.t2 = Math.min(e.t2, 24); }
   if (e.st === 'gbrk') dmg *= 1.5;
   if (!spell && !crit && Math.random() < critChance()) { dmg *= 1.5; crit = true; } // DEX: lucky crits
   dmg = Math.round(dmg);
   e.hp -= dmg; e.flash = 8; e.showBar = 200; e.agro = true;
   ftext(ecx, e.y - 4, crit ? 'CRITICAL ' + dmg : dmg, crit ? '#f08030' : '#f4ead6');
-  sfx('hit'); hitstop = crit ? 9 : heavy ? 5 : 3; shake = Math.max(shake, crit ? 5 : 2);
+  sfx('hit'); hitstop = crit ? 12 : heavy ? 8 : 5; shake = Math.max(shake, crit ? 5 : 2);
   spark(ecx, e.y + e.h / 2, '#fff2c0', crit ? 12 : 5);
   e.poise -= (spell ? 20 : heavy ? w.poise[1] : w.poise[0]) * mr.p; e.poiseT = 100;
   if (e.poise <= 0 && e.st !== 'stag' && e.hp > 0) { e.st = 'stag'; e.t2 = e.ch === 'J' ? 50 : 36; e.atk = null; e.poise = e.pmax || e.d.poise; }
@@ -2082,7 +2152,7 @@ function physics(e) {
   else { e.x += e.vx; e.y += e.vy; e.hitWall = false; }
 }
 function startAtk(e, a) {
-  e.atk = a; e.st = 'wind'; e.t2 = Math.round(a.wind * e.spd); e.hitDone = false; e.endAct = false; e.vx = 0; if (!e.grav) e.vy = 0;
+  e.atk = a; e.st = 'wind'; e.t2 = Math.round(a.wind * e.spd * PACE.enemy); e.hitDone = false; e.endAct = false; e.vx = 0; if (!e.grav) e.vy = 0;
   if (a.face !== false) e.face = Math.sign((P.x + P.w / 2) - (e.x + e.w / 2)) || e.face;
   if (a.onWind) a.onWind(e);
 }
@@ -2094,7 +2164,7 @@ function runAtk(e, c) {
   } else if (e.st === 'act') {
     if (a.during) a.during(e, c, 'act');
     if (!e.hitDone && a.box) { const b = a.box(e); if (b && overlap(b, P)) { e.hitDone = true; const r = resolveHit(e, a); traitHit(e, r); if (a.fx && (r === 'hit' || (r === 'block' && a.fxBlock))) mobFx(a.fx, a.fxN || 40); } }
-    if (e.st === 'act' && (--e.t2 <= 0 || e.endAct)) { e.endAct = false; e.st = 'rec'; e.t2 = Math.round(a.rec * e.spd); if (a.end) a.end(e, c); }
+    if (e.st === 'act' && (--e.t2 <= 0 || e.endAct)) { e.endAct = false; e.st = 'rec'; e.t2 = Math.round(a.rec * e.spd * PACE.enemy); if (a.end) a.end(e, c); }
   } else if (e.st === 'rec') {
     if (a.during) a.during(e, c, 'rec'); else e.vx *= .8;
     if (--e.t2 <= 0) { const nx = a.next ? a.next(e, c) : null; if (nx) startAtk(e, nx); else { e.st = 'idle'; e.atk = null; e.cd = a.cd ?? 40; } }
@@ -2463,7 +2533,22 @@ function updateWorld() {
     if (!live) continue;
     tickFx(e); if (e.dead) continue;
     if (!(hasFx(e, 'frost') && frameN % 3 === 0)) updateEnemy(e); // frost: a third slower
+    // the rest shrine is holy ground: monsters are pushed back to its edge
+    if (SAFE && !e.dead && e.ch !== 'J' && overlap(e, SAFE)) {
+      const mid = SAFE.x + SAFE.w / 2; e.x = e.x + e.w / 2 < mid ? SAFE.x - e.w : SAFE.x + SAFE.w; e.vx = 0;
+      if (e.agro && frameN % 20 === 0) spark(e.x + (e.x < mid ? e.w : 0), e.y + e.h / 2, '#9fe8ff', 3);
+    }
   }
+  // rest zone: slow healing, calm music, a note the first time you step in
+  const nowSafe = inSafe(P) && P.state !== 'dead';
+  if (nowSafe !== inRestZone) {
+    inRestZone = nowSafe;
+    Music.play(nowSafe ? SONGS.rest : GEN[levelIdx % GEN.length]);
+    if (nowSafe) ftext(P.x + P.w / 2, P.y - 12, 'SAFE ZONE', '#9fe8ff');
+  }
+  if (nowSafe && frameN % 12 === 0 && P.hp < maxHP()) P.hp++;
+  // combat heat: awake monsters near you add drums to the area music
+  musicHeat = enemies.some(e => !e.dead && e.agro && e.st !== 'sleep' && Math.abs(e.x - P.x) < 200) && !nowSafe ? 1 : 0;
   enemies = enemies.filter(e => !e.dead || e.ch === 'J');
   for (const pr of projs) {
     pr.x += pr.vx; pr.y += pr.vy; pr.life--;
@@ -2480,6 +2565,7 @@ function updateWorld() {
       if (frameN % 3 === 0) particles.push({ x: pr.x + rnd(0, 8), y: pr.y + rnd(0, 6), vx: 0, vy: -rnd(.2, .6), life: 16, c: '#b8ecff', g: 0, s: 1 });
     }
     if (pr.life <= 0) pr.dead = true;
+    if (!pr.dead && inSafe(pr)) { pr.dead = true; puff(pr.x + 2, pr.y + 2, '#9fe8ff', 5); } // shots fizzle on holy ground
     // a parry-timed block sends an arrow back at whoever shot it
     if (!pr.dead && pr.kind === 'arrow' && overlap(pr, P) && P.blocking && P.iframes <= 0 && P.blockT <= SHD().parry && Math.sign(pr.vx) === -P.face) {
       pr.mine = true; pr.vx = -pr.vx * 1.4; pr.vy = -pr.vy * .3; pr.dmg = Math.round(40 * floorHp()); pr.life = 140;
@@ -2530,6 +2616,8 @@ function updateWorld() {
   interact = null;
   const bf = SPAWNS.bonfire;
   if (P.state === 'free' && overlap(P, { x: bf.x - 6, y: bf.y - 8, w: 28, h: 24 })) interact = { label: 'REST', act: rest, obj: bf };
+  const sh = SPAWNS.shrine;
+  if (sh && P.state === 'free' && overlap(P, { x: sh.x - 6, y: sh.y - 8, w: 28, h: 24 })) interact = { label: 'REST', act: restShrine, obj: sh };
   const ch = SPAWNS.chest;
   if (ch && !CH.opened[levelIdx] && P.state === 'free' && overlap(P, { x: ch.x - 6, y: ch.y - 8, w: 24, h: 18 })) interact = { label: 'OPEN', act: openChest, obj: ch };
   const al = SPAWNS.altar;
@@ -2557,8 +2645,13 @@ function updateWorld() {
   if (popup && --popup.t <= 0) popup = null;
 }
 function rest() {
-  sfx('rest'); save(); loadLevel(levelIdx); state = 'menu'; bannerT = 0; openBonfire();
+  CH.cp = -1; sfx('rest'); save(); loadLevel(levelIdx); state = 'menu'; bannerT = 0; openBonfire('BONFIRE');
   puff(SPAWNS.bonfire.x + 8, SPAWNS.bonfire.y + 4, '#f8d048', 14);
+}
+// a rest shrine works like a bonfire (refill, monsters return) and becomes where you wake after death
+function restShrine() {
+  CH.cp = levelIdx; sfx('rest'); save(); loadLevel(levelIdx); state = 'menu'; bannerT = 0; openBonfire('REST SHRINE');
+  puff(SPAWNS.shrine.x + 8, SPAWNS.shrine.y + 4, '#9fe8ff', 14);
 }
 const freshItems = new Set(); // found since the bag was last looked at
 function gainItem(id) {
@@ -2594,8 +2687,10 @@ function updateCamera() {
 }
 
 // ================= Menus and UI flow =================
-function openBonfire() {
-  menu = { kind: 'bonfire', title: 'BONFIRE', sel: 0, items: [
+let fireTitle = 'BONFIRE';
+function openBonfire(title) {
+  if (typeof title === 'string') fireTitle = title;
+  menu = { kind: 'bonfire', title: fireTitle, sel: 0, items: [
     { label: 'LEVEL UP', act: openLevelUp }, { label: 'INVENTORY', act: () => openBag(openBonfire) }, { label: 'STATS', act: () => openStats(openBonfire) },
     { label: 'COOK', act: openCook }, { label: 'LEAVE', act: closeMenu }], back: closeMenu };
   state = 'menu';
@@ -2970,6 +3065,19 @@ function drawWorld() {
     ctx.fillStyle = gl > .5 ? '#e0b0ff' : '#c88ae8'; ctx.fillRect(x + 7, y + 6, 2, 6); ctx.fillRect(x + 5, y + 7, 2, 1); ctx.fillRect(x + 9, y + 9, 2, 1);
     if (frameN % 9 === 0) particles.push({ x: a.x + rnd(3, 13), y: a.y + 3, vx: 0, vy: -rnd(.2, .5), life: 30, c: '#c88ae8', g: 0, s: 1 });
     lights.push({ x: x + 8, y: y + 6, r: 40 + gl * 8, c: 'rgba(200,138,232,.22)' }); }
+  // rest shrine: rune stone with a pale spirit flame, standing stones mark the safe zone edges
+  if (SPAWNS.shrine) { const s = SPAWNS.shrine, x = Math.round(s.x - camX), y = s.y, gl = (Math.sin(frameN * .05) + 1) / 2, lit = CH.cp === levelIdx;
+    for (const ex of [SAFE.x - camX, SAFE.x + SAFE.w - 4 - camX]) {
+      ctx.fillStyle = '#140c10'; ctx.fillRect(ex - 1, y + 5, 6, 11); ctx.fillStyle = '#5a6670'; ctx.fillRect(ex, y + 6, 4, 10); ctx.fillStyle = '#7a8a96'; ctx.fillRect(ex, y + 6, 4, 1);
+      ctx.fillStyle = gl > .5 ? '#c8f4ff' : '#6ec8e8'; ctx.fillRect(ex + 1, y + 9, 2, 1); ctx.fillRect(ex + 1, y + 12, 2, 1);
+    }
+    ctx.fillStyle = '#140c10'; ctx.fillRect(x + 1, y + 2, 14, 14);
+    ctx.fillStyle = '#4a5560'; ctx.fillRect(x + 2, y + 4, 12, 12); ctx.fillStyle = '#6a7884'; ctx.fillRect(x + 3, y + 2, 10, 3); ctx.fillStyle = '#323a44'; ctx.fillRect(x + 2, y + 14, 12, 2);
+    ctx.fillStyle = '#9fe8ff'; ctx.fillRect(x + 7, y + 6, 2, 6); ctx.fillRect(x + 5, y + 8, 6, 1);
+    const fh = 4 + Math.round(gl * 2) + (lit ? 2 : 0);
+    ctx.fillStyle = lit ? '#c8f4ff' : '#6ec8e8'; ctx.fillRect(x + 6, y + 2 - fh, 4, fh); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 7, y + 2 - fh + 1, 2, fh - 2);
+    if (frameN % 7 === 0) particles.push({ x: s.x + rnd(-20, 36), y: s.y + 14, vx: 0, vy: -rnd(.15, .4), life: 50, c: '#9fe8ff', g: 0, s: 1 });
+    lights.push({ x: x + 8, y: y + 2, r: 70 + gl * 8, c: 'rgba(120,210,255,.22)' }); }
   // chest
   if (SPAWNS.chest) { const c = SPAWNS.chest, x = Math.round(c.x - camX), y = c.y, open = CH.opened[levelIdx];
     ctx.fillStyle = '#140c10'; ctx.fillRect(x - 1, y - 1, 14, 11);
