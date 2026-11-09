@@ -134,6 +134,17 @@ async def main():
         await ev("killEnemy(__dd.boss)"); await pg.wait_for_timeout(2600)
         check("win screen and legendary sword", await ev("__dd.state === 'win' && __dd.CH.inv.includes('draugr')"))
 
+        # 3D view: WebGL level under the 2D layer, V toggles 2D and back
+        if await ev("V3.ok"):
+            await ev("localStorage.removeItem('dd_view')")
+            check("3D view on by default", await ev("V3.on && document.body.classList.contains('v3d')"))
+            await pg.keyboard.press("KeyV"); await pg.wait_for_timeout(100)
+            check("V switches to 2D", await ev("!V3.on && getComputedStyle(document.getElementById('g3')).display === 'none'"))
+            await pg.click("#view"); await pg.wait_for_timeout(100)
+            check("view button switches back to 3D", await ev("V3.on"))
+        else:
+            print("SKIP 3D checks (no WebGL in this browser)")
+
         check("no page errors", not errs, "; ".join(errs[:3]))
         await b.close()
 

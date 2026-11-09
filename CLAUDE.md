@@ -15,13 +15,15 @@ Souls-like pixel dungeon side scroller. Plain HTML5 canvas + WebAudio, no build 
 
 ## Code map (sections inside index.html, marked `// ===== name =====`)
 Core setup, Bitmap font (3x5), Sprites (text grids in `GRIDS`, palette `PAL`), Levels (`LEVELS`, `buildLevel`),
-physics (`moveBody`, one-way platforms `=`), Background prerender (`paintBg`), Audio (songs, `SFX`, generative music `GEN`/`genBar`),
+physics (`moveBody`, one-way platforms `=`), Background prerender (`paintBg`: `bgWall` back wall, `bg` full 2D backdrop),
+3D view (`V3`: WebGL draws the level as blocks on canvas `#g3` under the see-through 2D canvas), Audio (songs, `SFX`, generative music `GEN`/`genBar`),
 Extra sprites, Classes/gear (`CLASSES`, `ITEMS`, `CH` = saved character), Input, Game state, Player (`updatePlayer`, `resolveHit`),
 Enemies shared (`hitEnemy`, `startAtk`/`runAtk` attack phases wind/act/rec), Enemy mechanics (one `AI.x` + attack defs per enemy),
 World (`updateWorld`), Menus and UI flow, Rendering, Main loop, test hook `window.__dd`.
 
 ## Conventions
 - Internal resolution 320x176, 16px tiles, 60 steps/second fixed timestep. Frame counts are in steps.
+- 3D view: game logic stays 2D. Only the level tiles and back wall are 3D; actors, effects, lights and HUD are still drawn on the 2D canvas, which lines up with the z = 0 plane. Something drawn on the back wall in 2D must go through `V3.pt(x, y)` (see torches). View choice saved in localStorage `dd_view`.
 - Enemies only deal damage through attacks (no contact damage). New attacks: add a def `{ wind, act, rec, dmg, parry, unblock, red, box, start, during, end, next, cd }` and call `startAtk`.
 - Telegraphs: white flash = blockable, red flash (`red: true`, `unblock: true`) = must roll.
 - Level ops: `[char, col, row, count, height]`. Chars: `#` wall, `=` ledge, `T` torch, `c` XP shard, `p` potion, `G` chest, mob letters r b t a s e w h k J.

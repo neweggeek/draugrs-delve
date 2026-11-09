@@ -6,7 +6,8 @@
 <title>Draugr's Delve</title>
 <style>
 html,body{margin:0;height:100%;background:#0b0709;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
-#game{position:absolute;image-rendering:pixelated;image-rendering:crisp-edges;background:#120c10}
+#game,#g3{position:absolute;image-rendering:pixelated;image-rendering:crisp-edges;background:#120c10}
+#g3{display:none}body.v3d #g3{display:block}body.v3d #game{background:transparent}
 .touch{position:fixed;display:none;z-index:2;bottom:calc(14px + env(safe-area-inset-bottom))}
 body.is-touch #pad{display:flex}
 body.is-touch #btns{display:grid}
@@ -21,12 +22,14 @@ body.is-touch:not(.portrait) .touch,body.is-touch:not(.portrait) #bUse{opacity:.
 #bUse{position:fixed;z-index:2;display:none;right:calc(12px + env(safe-area-inset-right));bottom:calc(150px + env(safe-area-inset-bottom));width:90px;height:40px;border-radius:20px;background:rgba(79,179,154,.3);border-color:rgba(143,214,195,.8);color:#e8fff8}
 .btn.on,#pad .half.on{background:rgba(242,193,78,.3)}
 #mute{position:fixed;z-index:3;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));width:44px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+#view{position:fixed;z-index:3;top:calc(10px + env(safe-area-inset-top));right:calc(62px + env(safe-area-inset-right));width:44px;height:44px;border-radius:8px;border:2px solid rgba(242,193,78,.4);background:rgba(20,12,16,.7);color:#f2c14e;font:700 13px ui-monospace,monospace;padding:0;cursor:pointer}
 #rot{position:fixed;left:0;right:0;text-align:center;color:#b8a596;font:12px ui-monospace,monospace;display:none}
 body.is-touch.portrait #rot{display:block}
 </style>
 </head>
 <body>
 <audio id="titleMusic" src="docs/music/dungeon_music_preview.mp3" loop preload="auto"></audio>
+<canvas id="g3" aria-hidden="true"></canvas>
 <canvas id="game" width="320" height="176" aria-label="Draugr's Delve game screen"></canvas>
 <div id="rot">Turn your phone sideways for a bigger view</div>
 <div id="pad" class="touch" aria-label="Move left or right">
@@ -42,6 +45,7 @@ body.is-touch.portrait #rot{display:block}
   <button class="btn" id="bJump" aria-label="Jump">JUMP</button>
 </div>
 <button class="btn" id="bUse" aria-label="Use">USE</button>
+<button id="view" aria-label="Switch between 3D and 2D view">2D</button>
 <button id="mute" aria-label="Toggle sound"><svg id="mIcon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" stroke="none"/><path id="mWave" d="M16 8c1.5 1.5 1.5 6.5 0 8M19 5c3 3 3 11 0 14"/><path id="mX" d="M16 9l6 6M22 9l-6 6" style="display:none"/></svg></button>
 <script>
 'use strict';
@@ -503,10 +507,17 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
 
 // ================= Background prerender (per level) =================
+// bgWall = back wall only (bricks, arches, sconces): the far plane in 3D. bg = bgWall + tiles + door: the whole 2D backdrop.
 const bg = document.createElement('canvas'); bg.height = H;
+const bgWall = document.createElement('canvas'); bgWall.height = H;
+function drawDoor(b, ex, ey) {
+  b.fillStyle = '#8a5a40'; b.fillRect(ex - 1, ey + 3, 18, 29); b.fillRect(ex + 2, ey, 12, 3);
+  b.fillStyle = '#5a3a30'; b.fillRect(ex, ey + 4, 16, 28); b.fillRect(ex + 3, ey + 1, 10, 3);
+  b.fillStyle = '#080507'; b.fillRect(ex + 2, ey + 5, 12, 27); b.fillRect(ex + 4, ey + 3, 8, 2);
+}
 function paintBg() {
-  bg.width = MW * TS;
-  const b = bg.getContext('2d');
+  bg.width = bgWall.width = MW * TS;
+  let b = bgWall.getContext('2d');
   const th = THEMES[LV.theme];
   let seed = 7 + LEVELS.indexOf(LV) * 131; const R = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => clamp(Math.round(v * f), 0, 255)); return `rgb(${c})`; };
@@ -530,6 +541,13 @@ function paintBg() {
     b.fillStyle = 'rgba(5,3,6,.68)';
     b.beginPath(); b.moveTo(cx - half, bottom); b.lineTo(cx - half, top + half); b.arc(cx, top + half, half, Math.PI, 0); b.lineTo(cx + half, bottom); b.closePath(); b.fill();
   }
+  // sconces
+  for (const t of SPAWNS.torches) {
+    b.fillStyle = '#3e2418'; b.fillRect(t.x - 1, t.y + 1, 3, 14);
+    b.fillStyle = '#6a4028'; b.fillRect(t.x, t.y + 1, 1, 14);
+    b.fillStyle = '#4a5260'; b.fillRect(t.x - 4, t.y + 2, 9, 2);
+  }
+  b = bg.getContext('2d'); b.drawImage(bgWall, 0, 0);
   // tiles
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const ch = MAP[y][x], px = x * TS, py = y * TS;
@@ -545,20 +563,134 @@ function paintBg() {
       b.fillStyle = '#3e2620'; b.fillRect(px + 7, py + 5, 2, 4);
     }
   }
-  // sconces
-  for (const t of SPAWNS.torches) {
-    b.fillStyle = '#3e2418'; b.fillRect(t.x - 1, t.y + 1, 3, 14);
-    b.fillStyle = '#6a4028'; b.fillRect(t.x, t.y + 1, 1, 14);
-    b.fillStyle = '#4a5260'; b.fillRect(t.x - 4, t.y + 2, 9, 2);
-  }
-  // exit doorway
-  if (SPAWNS.exit) {
-    const ex = SPAWNS.exit.x, ey = SPAWNS.exit.y;
-    b.fillStyle = '#8a5a40'; b.fillRect(ex - 1, ey + 3, 18, 29); b.fillRect(ex + 2, ey, 12, 3);
-    b.fillStyle = '#5a3a30'; b.fillRect(ex, ey + 4, 16, 28); b.fillRect(ex + 3, ey + 1, 10, 3);
-    b.fillStyle = '#080507'; b.fillRect(ex + 2, ey + 5, 12, 27); b.fillRect(ex + 4, ey + 3, 8, 2);
-  }
+  if (SPAWNS.exit) drawDoor(b, SPAWNS.exit.x, SPAWNS.exit.y);
+  V3.level();
 }
+// ================= 3D view (WebGL) =================
+// Grug plan: game logic stays 2D. The level is drawn in 3D by WebGL on a canvas under the 2D one:
+// tiles become blocks pushed out in depth, the back wall is a far plane. Everything else (actors, effects,
+// lights, HUD) is still drawn by the 2D canvas, which is see-through in 3D mode and lines up with the z = 0 plane.
+const V3 = (() => {
+  const ZB = -56, ZF = 12, D = 230, SC = 2, EYE_Y = 34; // back wall z, block front z, camera distance, GL pixels per game pixel, eye height
+  const gcv = document.getElementById('g3');
+  let gl = null;
+  try { gl = gcv.getContext('webgl', { antialias: false, alpha: false }); } catch (e) {}
+  const api = { ok: !!gl, on: false, ZB, level() {}, draw() {}, pt: (x, y) => ({ x, y }) };
+  try { api.on = api.ok && localStorage.getItem('dd_view') !== '2d'; } catch (e) { api.on = api.ok; }
+  if (!gl) return api;
+  gcv.width = W * SC; gcv.height = H * SC;
+  const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, `
+    attribute vec3 aP; attribute vec2 aT; attribute float aS;
+    uniform vec2 uEye, uMid; varying vec3 vP; varying vec2 vT; varying float vS;
+    void main() {
+      vP = aP; vT = aT; vS = aS;
+      float w = ${D}.0 - aP.z;
+      // off-axis camera: eye sits above the screen center, but the z = 0 plane still maps 1:1 onto the 2D canvas
+      vec2 s = (uEye - uMid) * w + (aP.xy - uEye) * ${D}.0;
+      gl_Position = vec4(s.x / ${W / 2}.0, -s.y / ${H / 2}.0, w * 5.0 - 1200.0, w);
+    }`));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `
+    precision mediump float;
+    uniform sampler2D uTex; uniform vec4 uL[8]; uniform vec3 uC[8];
+    varying vec3 vP; varying vec2 vT; varying float vS;
+    void main() {
+      vec3 c = texture2D(uTex, vT).rgb;
+      float depth = clamp((vP.z - ${ZB}.0) / ${ZF - ZB}.0, 0.0, 1.0);
+      vec3 lit = vec3(0.0);
+      for (int i = 0; i < 8; i++) lit += uC[i] * max(0.0, 1.0 - distance(vP, uL[i].xyz) / uL[i].w);
+      gl_FragColor = vec4(c * vS * (0.62 + 0.38 * depth) + c * lit * vS, 1.0);
+    }`));
+  gl.linkProgram(prog); gl.useProgram(prog);
+  const loc = n => gl.getAttribLocation(prog, n), uni = n => gl.getUniformLocation(prog, n);
+  const aP = loc('aP'), aT = loc('aT'), aS = loc('aS'), uEye = uni('uEye'), uMid = uni('uMid'), uL = uni('uL'), uC = uni('uC');
+  const buf = gl.createBuffer();
+  const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    return t; };
+  const wallTex = tex(), atlasTex = tex();
+  // atlas: 4 tiles of 16x16. 0 brick face, 1 stone top, 2 ledge side, 3 ledge top
+  const at = document.createElement('canvas'); at.width = 64; at.height = 16;
+  { const a = at.getContext('2d');
+    a.fillStyle = '#22161a'; a.fillRect(0, 0, 16, 16);
+    a.fillStyle = '#2d1d21'; a.fillRect(1, 1, 14, 6); a.fillRect(1, 9, 6, 6); a.fillRect(9, 9, 6, 6);
+    a.fillStyle = '#382428'; a.fillRect(1, 1, 14, 1); a.fillRect(1, 9, 6, 1); a.fillRect(9, 9, 6, 1);
+    a.fillStyle = '#4a3028'; a.fillRect(16, 0, 16, 16);
+    a.fillStyle = '#5c3c30'; a.fillRect(17, 1, 14, 6); a.fillRect(17, 9, 6, 6); a.fillRect(25, 9, 6, 6);
+    a.fillStyle = '#6a4434'; a.fillRect(17, 1, 14, 1); a.fillRect(17, 9, 6, 1); a.fillRect(25, 9, 6, 1);
+    a.fillStyle = '#5a3a30'; a.fillRect(32, 0, 16, 16); a.fillStyle = '#8a5a40'; a.fillRect(32, 0, 16, 1); a.fillStyle = '#2a1a18'; a.fillRect(32, 4, 16, 1);
+    a.fillStyle = '#6a4434'; a.fillRect(48, 0, 16, 16); a.fillStyle = '#4a2e26'; for (let i = 0; i < 16; i += 4) a.fillRect(48, i, 16, 1);
+    gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, at); }
+  let nBlocks = 0, wallW = 0;
+  const slices = [ZB, ZB + 17, ZB + 34, ZB + 51, ZF];
+  api.level = () => {
+    gl.bindTexture(gl.TEXTURE_2D, wallTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bgWall);
+    wallW = bgWall.width;
+    const v = [];
+    // quad from 4 corners (each [x,y,z]), atlas tile, uv rect inside the tile (0..1), shade
+    const quad = (c, tile, u0, v0, u1, v1, s) => {
+      const U = t => (tile * 16 + 0.01 + t * 15.98) / 64, V = t => (0.01 + t * 15.98) / 16;
+      const uv = [[U(u0), V(v0)], [U(u1), V(v0)], [U(u1), V(v1)], [U(u0), V(v1)]];
+      for (const i of [0, 1, 2, 0, 2, 3]) v.push(...c[i], ...uv[i], s);
+    };
+    // a box face swept along z (top, bottom, left, right), split in depth slices so the texture repeats
+    const sweep = (fn, tile, s, vh = 1) => { for (let i = 0; i < 4; i++) { const z0 = slices[i], z1 = slices[i + 1]; quad(fn(z0, z1), tile, 0, 0, 1, vh, s); } };
+    const cell = (x, y) => (x < 0 || x >= MW || y < 0 || y >= MH) ? '#' : MAP[y][x];
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      const ch = MAP[y][x], x0 = x * TS, x1 = x0 + TS, y0 = y * TS;
+      if (ch === '#') {
+        const y1 = y0 + TS;
+        quad([[x0, y0, ZF], [x1, y0, ZF], [x1, y1, ZF], [x0, y1, ZF]], 0, 0, 0, 1, 1, .9);
+        if (cell(x, y - 1) !== '#') sweep((a, b) => [[x0, y0, a], [x1, y0, a], [x1, y0, b], [x0, y0, b]], 1, 1.15);
+        if (cell(x, y + 1) !== '#') sweep((a, b) => [[x0, y1, b], [x1, y1, b], [x1, y1, a], [x0, y1, a]], 0, .5);
+        if (cell(x - 1, y) !== '#') sweep((a, b) => [[x0, y0, a], [x0, y0, b], [x0, y1, b], [x0, y1, a]], 0, .7);
+        if (cell(x + 1, y) !== '#') sweep((a, b) => [[x1, y0, b], [x1, y0, a], [x1, y1, a], [x1, y1, b]], 0, .7);
+      } else if (ch === '=') {
+        const y1 = y0 + 5, h = 5 / 16;
+        quad([[x0, y0, ZF], [x1, y0, ZF], [x1, y1, ZF], [x0, y1, ZF]], 2, 0, 0, 1, h, 1);
+        sweep((a, b) => [[x0, y0, a], [x1, y0, a], [x1, y0, b], [x0, y0, b]], 3, 1.1);
+        sweep((a, b) => [[x0, y1, b], [x1, y1, b], [x1, y1, a], [x0, y1, a]], 2, .45, h);
+        if (cell(x - 1, y) !== '=') sweep((a, b) => [[x0, y0, a], [x0, y0, b], [x0, y1, b], [x0, y1, a]], 2, .7, h);
+        if (cell(x + 1, y) !== '=') sweep((a, b) => [[x1, y0, b], [x1, y0, a], [x1, y1, a], [x1, y1, b]], 2, .7, h);
+      }
+    }
+    // back wall plane last in the buffer, uses its own texture
+    nBlocks = v.length / 6;
+    const ww = wallW;
+    for (const [px, py, u, t] of [[0, 0, 0, 0], [ww, 0, 1, 0], [ww, H, 1, 1], [0, 0, 0, 0], [ww, H, 1, 1], [0, H, 0, 1]]) v.push(px, py, ZB, u, t, 1);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+  };
+  // where a point at depth z shows up, as a z = 0 world position (so 2D sprites can sit on the back wall)
+  let camC = W / 2;
+  api.pt = (x, y, z = ZB) => { if (!api.on) return { x, y }; const k = D / (D - z); return { x: camC + (x - camC) * k, y: EYE_Y + (y - EYE_Y) * k }; };
+  api.setCam = sx => { camC = sx + W / 2; };
+  // lights: [{x, y, z, r, c: [r,g,b]}]
+  api.draw = (sx, lights) => {
+    camC = sx + W / 2;
+    gl.viewport(0, 0, gcv.width, gcv.height);
+    gl.clearColor(.07, .047, .063, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.uniform2f(uEye, camC, EYE_Y); gl.uniform2f(uMid, camC, H / 2);
+    const L = new Float32Array(32), C = new Float32Array(24);
+    lights.slice(0, 8).forEach((l, i) => { L.set([l.x, l.y, l.z, l.r], i * 4); C.set(l.c, i * 3); });
+    for (let i = lights.length; i < 8; i++) L[i * 4 + 3] = 1;
+    gl.uniform4fv(uL, L); gl.uniform3fv(uC, C);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 24, 0);
+    gl.enableVertexAttribArray(aT); gl.vertexAttribPointer(aT, 2, gl.FLOAT, false, 24, 12);
+    gl.enableVertexAttribArray(aS); gl.vertexAttribPointer(aS, 1, gl.FLOAT, false, 24, 20);
+    gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.drawArrays(gl.TRIANGLES, 0, nBlocks);
+    gl.bindTexture(gl.TEXTURE_2D, wallTex); gl.drawArrays(gl.TRIANGLES, nBlocks, 6);
+  };
+  api.set = on => {
+    api.on = on && api.ok;
+    document.body.classList.toggle('v3d', api.on);
+    try { localStorage.setItem('dd_view', api.on ? '3d' : '2d'); } catch (e) {}
+    const b = document.getElementById('view'); if (b) b.textContent = api.on ? '2D' : '3D';
+  };
+  return api;
+})();
 // ================= Audio =================
 let AC = null, master, musicG, sfxG, WAVES = {}, NZ = {};
 let muted = false;
@@ -961,6 +1093,7 @@ const UIKEY = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', Arro
 addEventListener('keydown', e => {
   if (document.body.classList.contains('is-touch') && !e.repeat) { document.body.classList.remove('is-touch'); resize(); }
   if (e.code === 'KeyM' && !e.repeat) { initAudio(); setMuted(!muted); return; }
+  if (e.code === 'KeyV' && !e.repeat) { V3.set(!V3.on); return; }
   if (e.metaKey || e.ctrlKey) return;
   initAudio();
   if (state !== 'play') { if (UIKEY[e.code] || e.code.startsWith('Key')) e.preventDefault(); if (!e.repeat) uiKey(UIKEY[e.code] || 'any'); return; }
@@ -1011,6 +1144,11 @@ function bindBtn(id, k, uiAction) {
 bindBtn('bAtk', 'atk', 'ok'); bindBtn('bJump', 'jump', 'ok'); bindBtn('bBlk', 'block', 'back'); bindBtn('bRoll', 'roll', 'ok'); bindBtn('bHeal', 'heal', 'ok'); bindBtn('bUse', 'use', 'ok'); bindBtn('bFire', 'fire', 'ok');
 document.getElementById('mute').addEventListener('click', e => { e.stopPropagation(); initAudio(); setMuted(!muted); });
 document.getElementById('mute').addEventListener('pointerdown', e => e.stopPropagation());
+{ const vb = document.getElementById('view');
+  if (!V3.ok) vb.style.display = 'none';
+  vb.addEventListener('click', e => { e.stopPropagation(); V3.set(!V3.on); vb.blur(); });
+  vb.addEventListener('pointerdown', e => e.stopPropagation());
+  V3.set(V3.on); }
 const prevPad = {};
 function pollPad() {
   const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(g => g) : null;
@@ -1044,6 +1182,7 @@ function resize() {
   cv.style.left = (vw - cw) / 2 + 'px';
   const top = isTouch && portrait ? Math.max(12, (availH - ch) / 2) : (vh - ch) / 2;
   cv.style.top = top + 'px';
+  const g3 = document.getElementById('g3'); for (const k of ['width', 'height', 'left', 'top']) g3.style[k] = cv.style[k];
   document.getElementById('rot').style.top = (top + ch + 10) + 'px';
 }
 addEventListener('resize', resize); resize();
@@ -1770,7 +1909,7 @@ function drawPlayer() {
 function drawWorld() {
   const sx = clamp(Math.round(camX + (shake ? rnd(-shake, shake) : 0)), 0, bg.width - W);
   const realCam = camX; camX = sx;
-  ctx.drawImage(bg, sx, 0, W, H, 0, 0, W, H);
+  drawScene(sx);
   if (arenaLocked) {
     const gx = ARENA_X - camX;
     ctx.fillStyle = '#22161a'; ctx.fillRect(gx, 16, 16, 128);
@@ -1779,7 +1918,8 @@ function drawWorld() {
   }
   const lights = [];
   for (const t of SPAWNS.torches) if (t.x > camX - 90 && t.x < camX + W + 90) {
-    flameAt(t.x, t.y); lights.push({ x: t.x - camX, y: t.y - 4, r: 74 + Math.sin(frameN * .2 + t.x) * 3 + rnd(-1, 1), c: ORANGE });
+    const q = V3.pt(t.x, t.y);
+    flameAt(q.x, q.y); lights.push({ x: q.x - camX, y: q.y - 4, r: 74 + Math.sin(frameN * .2 + t.x) * 3 + rnd(-1, 1), c: ORANGE });
   }
   // bonfire: coiled sword in ash
   { const b = SPAWNS.bonfire, x = b.x - camX, y = b.y;
@@ -1875,7 +2015,23 @@ function drawWorld() {
   drawLights(lights, THEMES[LV.theme].amb);
   for (const t of texts) { ctx.globalAlpha = Math.min(1, t.life / 15); drawTextS(t.s, t.x - camX, t.y, t.col, 1, 'center'); }
   ctx.globalAlpha = 1;
+  if (V3.on) V3.draw(sx, lights3d(true));
   camX = realCam;
+}
+// 3D: the level is drawn by WebGL under this canvas, so only draw what is not in the level mesh (the door).
+function drawScene(sx) {
+  if (!V3.on) { ctx.drawImage(bg, sx, 0, W, H, 0, 0, W, H); return; }
+  V3.setCam(sx);
+  if (SPAWNS.exit) drawDoor(ctx, SPAWNS.exit.x - sx, SPAWNS.exit.y);
+}
+function lights3d(withPlayer) {
+  const out = [], fl = Math.sin(frameN * .2) * 4;
+  if (withPlayer) out.push({ x: P.x + P.w / 2, y: P.y + 6, z: 4, r: 70, c: [.35, .3, .28] });
+  for (const pr of projs) if (pr.kind === 'fireball' || pr.kind === 'frost')
+    out.push({ x: pr.x + 3, y: pr.y + 3, z: 0, r: 50, c: pr.kind === 'frost' ? [.2, .5, .7] : [.9, .45, .15] });
+  const near = SPAWNS.torches.filter(t => Math.abs(t.x - camX - W / 2) < W).sort((a, b) => Math.abs(a.x - camX - W / 2) - Math.abs(b.x - camX - W / 2));
+  for (const t of near) out.push({ x: t.x, y: t.y - 4, z: V3.ZB + 6, r: 96 + fl, c: [.85, .45, .18] });
+  return out.slice(0, 8);
 }
 function drawHUD() {
   const mh = maxHP(), ms = maxST();
@@ -1914,11 +2070,12 @@ function drawHUD() {
 }
 function drawBackdrop(x0) {
   camX = x0;
-  ctx.drawImage(bg, x0, 0, W, H, 0, 0, W, H);
+  drawScene(x0);
   const lights = [];
-  for (const t of SPAWNS.torches) if (t.x > x0 - 60 && t.x < x0 + W + 60) { flameAt(t.x, t.y); lights.push({ x: t.x - x0, y: t.y - 4, r: 78 + Math.sin(frameN * .2 + t.x) * 3, c: ORANGE }); }
+  for (const t of SPAWNS.torches) if (t.x > x0 - 60 && t.x < x0 + W + 60) { const q = V3.pt(t.x, t.y); flameAt(q.x, q.y); lights.push({ x: q.x - x0, y: q.y - 4, r: 78 + Math.sin(frameN * .2 + t.x) * 3, c: ORANGE }); }
   for (const p of particles) { ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x - camX), Math.round(p.y), p.s, p.s); }
   drawLights(lights, .7);
+  if (V3.on) V3.draw(x0, lights3d(false));
 }
 function uiButton(label, x, y, w, h, selected, fn, col, ty) {
   ctx.fillStyle = selected ? 'rgba(242,193,78,.18)' : 'rgba(20,12,16,.6)'; ctx.fillRect(x, y, w, h);
@@ -2034,7 +2191,7 @@ let useShown = false;
 function render() {
   uiRects = [];
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = '#120c10'; ctx.fillRect(0, 0, W, H);
+  if (V3.on) ctx.clearRect(0, 0, W, H); else { ctx.fillStyle = '#120c10'; ctx.fillRect(0, 0, W, H); }
   if (state === 'title') drawTitle();
   else if (state === 'class') drawClassSelect();
   else if (state === 'win') drawWin();
