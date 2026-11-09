@@ -199,7 +199,7 @@ async def main():
         check("I opens inventory", await ev("__dd.state === 'menu' && __dd.menu.kind === 'bag'"))
         await pg.keyboard.press("KeyI"); await pg.wait_for_timeout(80)
         check("I closes inventory", await ev("__dd.state") == "play")
-        await ev("dropLoot(__dd.P.x + 5, __dd.P.y - 20, 'emberring')"); await pg.wait_for_timeout(1500)
+        await ev("dropLoot(__dd.P.x + 5, __dd.P.y - 20, 'emberring'); pickups[pickups.length - 1].vx = 0"); await pg.wait_for_timeout(1500)
         check("loot drop falls and is picked up", await ev("__dd.CH.inv.includes('emberring') && !pickups.some(p => p.kind === 'loot')"))
         hp0 = await ev("maxHP()")
         await ev("openBag(); __dd.menu.sel = __dd.menu.list.indexOf('emberring')"); await pg.keyboard.press("Enter"); await pg.wait_for_timeout(80)
@@ -217,6 +217,7 @@ async def main():
         await ev("openStats()"); await pg.wait_for_timeout(80)
         check("stats screen opens", await ev("__dd.menu.kind === 'stats'"))
         await pg.keyboard.press("Escape"); await pg.wait_for_timeout(80)
+        check("version watermark is set", await ev("typeof VERSION === 'string' && /^V\\d+/.test(VERSION)"))
         check("no page errors", not errs, "; ".join(errs[:3]))
         await b.close()
 

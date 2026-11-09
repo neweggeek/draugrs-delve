@@ -53,6 +53,8 @@ body.is-touch.portrait #rot{display:block}
 <script>
 'use strict';
 // ================= Core setup =================
+// Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
+const VERSION = 'V7 2026-11-09 INVENTORY';
 const W = 320, H = 176, TS = 16;
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -2796,6 +2798,7 @@ function render() {
     }
     if (fadeT > 0) { ctx.fillStyle = `rgba(10,4,8,${fadeT / 30})`; ctx.fillRect(0, 0, W, H); }
   }
+  drawText(VERSION, W / 2, 1, 'rgba(216,200,184,.45)', 1, 'center'); // build watermark
   const want = isTouchUI() && state === 'play' && !!interact;
   document.body.classList.toggle('has-fire', hasFire());
   document.body.classList.toggle('in-play', state === 'play');
