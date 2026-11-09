@@ -28,6 +28,21 @@
 9. Shieldbearer: blocks all frontal light hits, turns slowly. Heavy breaks guard; parry the bash.
 10. Draugr Jarl: 380 HP. Two-hit combo, red charge into the wall (stuns him), frost waves, leaps onto ledges. Phase 2 at 50%: faster, double waves, summons two thralls.
 
+## Floors
+- 100 floors. 1 to 10 are hand built (one lesson each, Jarl on 10). 11 to 100 are generated from a seed, so each floor is the same every visit.
+- Deeper floors: wider, more mobs, mixed bodies, enemy HP +3.5 and damage +1.8 per floor past 10.
+- Odd generated floors run right to left (bonfire on the right, exit on the left).
+- Every 10th floor is a Jarl hall with a traited Jarl. The first Jarl gives the win screen and fireball, later ones lead on. Floor 100 ends the run.
+
+## Mix-and-match monsters
+- Any body can carry traits. First trait tints the sprite; the name shows above it.
+- IRON: tough, hard to stagger. SWIFT: short wind-up and recovery. GIANT: big, hits hard. EMBER: leaves fire where it dies. FROST: hits drain stamina even on block. CURSED: heals when it hits you.
+- ELITE (floor 15 and down, about 1 in 10): gold, always two more traits, drops 3 parts and a flask. Loot goes through `dropTable(e)`.
+
+## Cooking
+- Kills drop parts: MEAT (rats, bats, spiders), BONE (thralls, archers, shambler, shieldbearers), JELLY (slimes), ASH (wisps).
+- Bonfire, COOK: one meal at a time, lasts until you die. Roast (2 meat): max HP x1.3. Broth (2 bone): damage taken x0.75. Ember jelly (jelly + meat): stamina regen x1.5. Ash bread (ash + bone): damage x1.25.
+
 ## Character
 - Classes: Knight (sword, wooden shield, chain), Berserker (greataxe, no shield, hide), Rogue (twin daggers, buckler, leather).
 - HP = 30 + VIT x 7. Stamina = 40 + END x 6. Damage x (1 + (STR - 10) x 0.07).
@@ -53,4 +68,4 @@
 - Footsteps vary with armor weight.
 
 ## Not built yet
-More dungeons, NPCs or shops, settings menu.
+NPCs or shops, settings menu.

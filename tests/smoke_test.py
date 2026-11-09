@@ -128,7 +128,7 @@ async def main():
         await ev("__dd.tp(ARENA_X + 60, 130); __dd.P.hp = 9999"); await pg.wait_for_timeout(2200)
         # land on the ledge first, then let the boss choose (it only leaps once you stand up there)
         await ev("__dd.tp(15*16, 65); __dd.P.hp = 9999; __dd.boss.atk = null; __dd.boss.st = 'idle'; __dd.boss.cd = 999"); await pg.wait_for_timeout(250)
-        await ev("__dd.P.hp = 9999; __dd.boss.atk = null; __dd.boss.st = 'idle'; __dd.boss.cd = 0; window.__leap = false; const L=()=>{ if (__dd.boss.atk === J_LEAP) window.__leap = true; requestAnimationFrame(L)}; L();")
+        await ev("__dd.P.hp = 9999; __dd.boss.atk = null; __dd.boss.st = 'idle'; __dd.boss.cd = 0; window.__leap = false; const L=()=>{ if (__dd.boss && __dd.boss.atk === J_LEAP) window.__leap = true; requestAnimationFrame(L)}; L();")
         await pg.wait_for_timeout(2500)
         check("boss leaps after you on a ledge", await ev("window.__leap"))
         await ev("killEnemy(__dd.boss)"); await pg.wait_for_timeout(2600)
@@ -160,6 +160,38 @@ async def main():
         n = await ev("(() => { const b = particles.length; const s = state; die(); const n = particles.length - b; return [n, fadeT]; })()")
         check("hero shatters on death", n[0] > 60, str(n))
         check("low HP heartbeat", await ev("(() => { const s = P.state, h = P.hp; P.state = 'free'; P.hp = 1; const a = lowHP(); P.hp = maxHP(); const b = lowHP(); P.state = s; P.hp = h; return a && !b; })()"))
+        # 100 floors: every floor builds, has a bonfire, mobs, and an exit or a boss
+        n = await ev("""(() => { let bad = []; for (let i = 0; i < LEVELS.length; i++) { buildLevel(i);
+            if (!SPAWNS.bonfire || !SPAWNS.mobs.length || !(SPAWNS.exit || LEVELS[i].arena)) bad.push(i); } return [LEVELS.length, bad]; })()""")
+        check("100 floors all build", n == [100, []], str(n))
+        same = await ev("JSON.stringify(genFloor(42)) === JSON.stringify(genFloor(42))")
+        check("generated floors are seeded", same)
+        # mix and match: deep floors carry traits that change stats and draw tinted
+        n = await ev("""(() => { __dd.newGame('knight', 60); const tr = __dd.enemies.filter(e => e.tr && e.tr.length);
+            const g = applyTraits(makeEnemy('t', 10, 8), ['giant', 'frost']); const base = applyTraits(makeEnemy('t', 10, 8));
+            return [tr.length > 0, g.maxhp > base.maxhp * 1.9, g.h > base.h, g.tname === 'GIANT FROST', base.maxhp > 60]; })()""")
+        check("mixed trait monsters on deep floors", n == [True] * 5, str(n))
+        await pg.wait_for_timeout(300)
+        # cooking: kill drops a part, bonfire cooks it into a meal that lasts until death
+        n = await ev("""(() => { __dd.newGame('knight', 0); const e = __dd.enemies[0]; killEnemy(e);
+            const pk = pickups.find(p => p.kind === 'part'); if (!pk) return 'no part';
+            __dd.tp(pk.x, pk.y - 4); return pk.part; })()""")
+        await pg.wait_for_timeout(300)
+        check("monster drops a part you can pick up", n == 'meat' and await ev("__dd.CH.bag.meat === 1"), str(n))
+        n = await ev("""(() => { const hp0 = maxHP(); CH.bag.meat = 2; __dd.rest(); openCook(); cook('roast');
+            return [CH.meal, CH.bag.meat, maxHP() > hp0, P.hp === maxHP()]; })()""")
+        check("cooking a meal buffs max HP", n == ['roast', 0, True, True], str(n))
+        await ev("closeMenu(); P.hp = 1; die()"); await pg.wait_for_timeout(2600)
+        check("meal is lost on death", await ev("__dd.CH.meal === null"))
+        # beating a later Jarl moves on to the next floor
+        await ev("__dd.newGame('knight', 19); __dd.CH.beat = true; killEnemy(__dd.boss)"); await pg.wait_for_timeout(2400)
+        n = await ev("(() => { buildLevel(10); const a = SPAWNS.bonfire.x < SPAWNS.exit.x; buildLevel(11); return [a, SPAWNS.bonfire.x > SPAWNS.exit.x]; })()")
+        check("floors run left to right and right to left", n == [True, True], str(n))
+        n = await ev("(() => { const e = applyTraits(makeEnemy('t', 10, 8), ['elite', 'iron', 'swift']); return [e.tname, dropTable(e).length]; })()")
+        check("elite mob drops extra loot", n == ['ELITE IRON SWIFT', 4], str(n))
+        n = await ev("LEVELS.slice(14).some(L => Object.values(L.mods || {}).some(t => t[0] === 'elite'))")
+        check("elites spawn on deep floors", n)
+        check("later Jarl leads to the next floor", await ev("__dd.state === 'clear' && __dd.CH.unlocked >= 21 && __dd.boss.bname === 'FROST JARL'"), str(await ev("[__dd.state, __dd.boss.bname]")))
         check("no page errors", not errs, "; ".join(errs[:3]))
         await b.close()
 
