@@ -102,7 +102,8 @@
 
 ## Inventory and loot
 - Five slots: weapon, shield, armor, ring, amulet. Shield, ring and amulet can be left empty.
-- Inventory (I key, BAG button, or pause and bonfire menus): worn gear on top, bag grid below, cooking parts at the bottom. Pick an item to wear it, pick a worn ring, amulet or shield to take it off. Gear can be changed anywhere.
+- Inventory (I key, BAG button, or pause and bonfire menus): worn gear on top, bag grid below, cooking parts at the bottom. Gear can be changed anywhere.
+- Bag input, the same everywhere: click or tap an item to see its info. Click or tap it again, right click it, press Enter (pad A) or ACTIONS for the action menu: EQUIP (or TAKE OFF for a ring, amulet or shield), COMBINE, SALVAGE, CANCEL. Actions that can not be used stay greyed with the reason. Esc / B / right click outside closes it.
 - Stats screen (pause and bonfire menus): base stat, green gear bonus, total, then derived numbers.
 - Rarity: COMMON (beige), RARE (blue), EPIC (purple), LEGENDARY (gold). Drops glow with a beam in their color, bigger for better rarity.
 - Drops: chance = 10% + enemy XP / 600 (elites +50%). Rarity roll: 2% legendary, 10% epic, 28% rare, rest common, shifted toward better by 1 point per floor (cap 25) and 30 for elites. New gear drops first; once every item of a rarity is found, copies drop (fodder for combine or salvage). Summons, split slimes and the Jarl do not roll.
@@ -116,8 +117,8 @@
 - Fix it by salvaging, combining, or levelling STR (gear STR counts too).
 
 ## Crafting
-- Salvage (bag, X or SALVAGE, press twice): breaks an item into rune dust: 3 / 8 / 20 / 50 by rarity, +4 per upgrade level. Your only worn copy can not be salvaged.
-- Combine (bag, C or COMBINE, then pick a second item of the same slot): the second item melts into the first, which gains +1 (plus half the melted item's upgrades), up to +10.
+- Salvage (action menu, or X / pad Y): asks YES / NO, then breaks one copy into rune dust: 3 / 8 / 20 / 50 by rarity. Copies share one upgrade level, so only the last copy adds +4 per upgrade level. Your only worn weapon or armor can not be salvaged (equip another first); a worn ring, amulet or shield must be taken off first.
+- Combine (action menu, or C / pad X) opens its own screen: the item to upgrade on top, every item that can melt into it below (same slot, never your only worn copy). Picking one previews the result (new level, stats before and after, weight saved, a red warning if the fodder is upgraded or rarer). Pick it again or press COMBINE: it always works and shows a SUCCESS card. Gain is +1, plus half the melted item's upgrades when it is a different item, up to +10.
 - Upgrade +N: weapon damage x(1 + 0.08N), shield block +1% and stability +3 per level, armor defense +1.2% per level, ring and amulet stats +1 every 2 levels, other gear bonuses +1 every 3 levels, status buildup x(1 + 0.08N).
 - Rune altar on floors 3, 6, 9, ... (not boss halls), next to the bonfire. Craft a random item of a chosen rarity for 15 / 40 / 100 / 250 dust (unowned first), or temper worn weapon or armor for 30 + 25 x level x (rarity + 1) dust.
 - Dust also comes from kills (25% chance, elites and Jarls always, more on deep floors) and from chests that have nothing left to give.
