@@ -54,7 +54,7 @@ body.is-touch.portrait #rot{display:block}
 'use strict';
 // ================= Core setup =================
 // Build tag shown at the top of the screen. Bump it with every merged change so players can tell which build they run.
-const VERSION = 'V7 2026-11-09 INVENTORY';
+const VERSION = 'V8 2026-11-09 100 FLOORS';
 const W = 320, H = 176, TS = 16;
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -368,7 +368,9 @@ const THEMES = {
   ossuary: { amb: .78, pal: ['#2e2a33','#36303b','#3e3640','#28232c'], decor: 'skull' },
   forge:   { amb: .6,  pal: ['#4a2420','#58291f','#632e22','#3b1d1a'], decor: 'ember' },
   barrow:  { amb: .66, pal: ['#26302a','#2c3730','#33402f','#202822'], decor: 'moss' },
-  throne:  { amb: .7,  pal: ['#3a1f2e','#452436','#2e1825','#4f2a3b'] }
+  throne:  { amb: .7,  pal: ['#3a1f2e','#452436','#2e1825','#4f2a3b'] },
+  ice:     { amb: .8,  pal: ['#26323e','#2c3a48','#33424f','#1f2a34'], decor: 'skull' },
+  abyss:   { amb: .58, pal: ['#241a30','#2b1f3a','#332444','#1c1426'], decor: 'ember' }
 };
 // Every area: ceiling, floor, side walls, bonfire at the left, exit door at the right (boss area has no exit).
 // op = [char, col, row, count = 1, height = 1]. c = XP shard, p = flask refill, G = gear chest.
@@ -430,8 +432,8 @@ const TRAITS = {
 const TRAIT_KEYS = Object.keys(TRAITS).filter(k => k !== 'elite'), BOSS_TRAITS = ['iron', 'frost', 'ember', 'swift', 'cursed'];
 // Floors 11 to 100 are generated from a seed: same floor, same layout, every time. Every 10th floor is a Jarl hall.
 const FLOORS = 100, BODIES = 'rbtasewhk';
-const ADJ = ['SUNKEN', 'ASHEN', 'HOLLOW', 'FROZEN', 'ROTTING', 'SILENT', 'BLEAK', 'WEEPING', 'IRON', 'BLACK', 'DROWNED', 'BURIED'];
-const NOUN = ['CRYPT', 'HALLS', 'BARROW', 'VAULTS', 'DEEP', 'TOMBS', 'CAVES', 'GALLERY', 'SHRINE', 'PITS', 'CELLARS', 'WARRENS'];
+const ADJ = ['SUNKEN', 'GLOOMY', 'RUNED', 'WAILING', 'COLD', 'FORGOTTEN', 'ASHEN', 'HOLLOW', 'FROZEN', 'ROTTING', 'SILENT', 'BLEAK', 'WEEPING', 'IRON', 'BLACK', 'DROWNED', 'BURIED'];
+const NOUN = ['CRYPT', 'CATACOMBS', 'OSSUARY', 'MINES', 'HOARD', 'HALLS', 'BARROW', 'VAULTS', 'DEEP', 'TOMBS', 'CAVES', 'GALLERY', 'SHRINE', 'PITS', 'CELLARS', 'WARRENS'];
 const GEN_TIPS = ['MIXED BLOOD. READ EACH TELL.', 'A TINTED FOE CARRIES A TRAIT.', 'CARVE PARTS. COOK THEM AT THE BONFIRE.', 'GIANTS HIT HARDER. ROLL MORE.',
   'FROST FOES DRAIN STAMINA, EVEN ON BLOCK.', 'EMBER FOES BURN WHERE THEY FALL.', 'CURSED FOES HEAL WHEN THEY HIT YOU.', 'IRON FOES SHRUG OFF STAGGER.'];
 function seeded(s) { return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }
@@ -441,22 +443,32 @@ function genFloor(n) {
     const t = BOSS_TRAITS[(n / 10 | 0) % BOSS_TRAITS.length];
     return Object.assign({}, LEVELS[9], { name: TRAITS[t].name + " JARL'S HALL", mods: { '19,8': [t] }, gen: true });
   }
-  const theme = ['hall', 'ossuary', 'forge', 'barrow'][(n / 3 | 0) % 4], low = theme === 'barrow';
-  const w = Math.min(56, 40 + (n / 10 | 0) * 2), ops = [], mods = {};
-  for (let x = 7; x < w - 3; x += ri(7, 10)) ops.push(['T', x, low ? 4 : 3]);
-  for (let x = 9; x < w - 9;) {
-    const len = ri(3, 5), r = R();
-    if (r < .55) {
-      ops.push(['=', x, 7, len], ['c', x + 1, 6, len - 2]);
-      if (R() < .45 && x + len + 2 < w - 6) ops.push(['=', x + len - 1, 5, 3], ['c', x + len, 4]);
-    } else if (r < .7) ops.push(['.', x, 9, 2], ['c', x, 9, 2]);
-    x += len + ri(2, 5);
+  // deeper floors unlock new looks: frozen halls past 30, the abyss past 60
+  const themes = ['hall', 'ossuary', 'forge', 'barrow'].concat(n >= 30 ? ['ice'] : [], n >= 60 ? ['abyss', 'abyss'] : []);
+  const theme = pick(themes), low = theme === 'barrow';
+  const w = Math.min(64, 40 + (n / 6 | 0) * 2), ops = [], mods = {};
+  let chest = false;
+  for (let x = 7; x < w - 3; x += ri(6, 9)) ops.push(['T', x, low ? 4 : 3]);
+  // chunks: ledge (maybe with a second tier), stairs up to a high perch, a dip with shards, a stone pillar, a chest nook
+  for (let x = 9; x < w - 10;) {
+    const r = R(); let used;
+    if (r < .32) {
+      used = ri(3, 5); ops.push(['=', x, 7, used], ['c', x + 1, 6, used - 2]);
+      if (R() < .5 && x + used + 2 < w - 6) { ops.push(['=', x + used - 1, 5, 3], ['c', x + used, 4]); used += 2; }
+    } else if (r < .47 && !low && x + 9 < w - 6) {
+      used = 9; ops.push(['=', x, 7, 3], ['=', x + 3, 5, 3], ['=', x + 6, 3, 3], ['c', x + 6, 2, 3]);
+      if (R() < .5) ops.push(['p', x + 7, 2]);
+    } else if (r < .62) { used = ri(2, 3); ops.push(['.', x, 9, used], ['c', x, 9, used]); }
+    else if (r < .77) { used = 1; ops.push(['#', x, 7, 1, 2], ['c', x, 6]); }
+    else if (r < .87 && !chest) { used = 3; chest = true; ops.push(['=', x, 7, 3], ['G', x + 1, 8]); }
+    else used = 2;
+    x += used + ri(2, 4);
   }
   for (let i = n > 40 ? 2 : 1; i > 0; i--) ops.push(['p', ri(12, w - 8), 8]);
-  const pool = BODIES.slice(0, Math.min(9, 3 + (n / 4 | 0))), count = Math.min(11, 5 + (n / 12 | 0)), stepX = (w - 17) / count;
+  const pool = BODIES.slice(0, Math.min(9, 3 + (n / 4 | 0))), count = Math.min(14, 5 + (n / 9 | 0)), stepX = (w - 19) / count;
   const p1 = Math.min(.75, .2 + (n - 10) * .008), p2 = n > 40 ? Math.min(.4, (n - 40) * .008) : 0;
   for (let i = 0; i < count; i++) {
-    const ch = pick(pool), x = Math.round(11 + i * stepX + R()), y = ch === 'b' || ch === 'w' ? ri(3, 5) : ch === 's' ? (low ? 3 : 1) : 8;
+    const ch = pick(pool), x = Math.round(11 + i * stepX + R()), y = ch === 'b' || ch === 'w' ? ri(2, 5) : ch === 's' ? (low ? 3 : 1) : 8;
     ops.push([ch, x, y]);
     const tr = [];
     if (n >= 14 && R() < .1) { tr.push('elite', pick(TRAIT_KEYS)); let t2 = pick(TRAIT_KEYS); while (t2 === tr[1]) t2 = pick(TRAIT_KEYS); tr.push(t2); }
@@ -464,8 +476,15 @@ function genFloor(n) {
     if (tr.length === 1 && R() < p2) { const t2 = pick(TRAIT_KEYS); if (t2 !== tr[0]) tr.push(t2); }
     if (tr.length) mods[x + ',' + y] = tr;
   }
+  // every floor ending in 5: a champion (elite giant) guards the exit
+  let tip = pick(GEN_TIPS);
+  if (n % 10 === 4) {
+    const ch = pick(n < 20 ? ['t'] : ['t', 'h', 'k']), x = w - 7;
+    ops.push(['.', x, 8], [ch, x, 8]); mods[x + ',8'] = ['elite', 'giant', pick(TRAIT_KEYS.filter(k => k !== 'giant'))];
+    tip = 'A CHAMPION GUARDS THE EXIT.';
+  }
   // odd floors run right to left: bonfire on the right, exit on the left
-  return { name: pick(ADJ) + ' ' + pick(NOUN), mob: pool[pool.length - 1], theme, w, tip: pick(GEN_TIPS), ops, mods, gen: true, flip: n % 2 === 1 };
+  return { name: pick(ADJ) + ' ' + pick(NOUN), mob: pool[pool.length - 1], theme, w, tip, ops, mods, gen: true, flip: n % 2 === 1 };
 }
 for (let n = LEVELS.length; n < FLOORS; n++) LEVELS.push(genFloor(n));
 const MH = 11;
@@ -1374,6 +1393,7 @@ function save() { try { localStorage.setItem('dd2', JSON.stringify(CH)); SAVE = 
 // old saves (before rings, amulets and DEX) are filled in with defaults
 function loadSave() { try { const s = JSON.parse(localStorage.getItem('dd2') || 'null'); if (s && CLASSES[s.cls] && s.eq && ITEMS[s.eq.w]) {
   s.bag = s.bag || {}; s.meal = MEALS[s.meal] ? s.meal : null;
+  if (s.beat) s.unlocked = Math.max(s.unlocked, 11); // saves from before floors 11 to 100 stopped at 10
   if (s.dex == null) s.dex = CLASSES[s.cls].dex;
   for (const k in EMPTY) if (!ITEMS[s.eq[k]]) s.eq[k] = EMPTY[k];
   s.inv = s.inv.filter(id => ITEMS[id]); return s; } } catch (e) {} return null; }
@@ -2129,7 +2149,11 @@ function gainItem(id) {
 }
 function openChest() {
   CH.opened[levelIdx] = true;
-  gainItem(SPAWNS.chest.item);
+  // generated floors: the chest rolls loot like an elite kill, or gives parts and XP when nothing is left to find
+  const id = SPAWNS.chest.item || rollLoot({ xp: 1e4, tr: ['elite'] });
+  if (id) gainItem(id);
+  else { const xp = 40 + levelIdx * 6; CH.xp += xp; for (const p of PARTS) CH.bag[p] = (CH.bag[p] || 0) + 1;
+    popup = { lines: ['FOUND: PROVISIONS', '+' + xp + ' XP  +1 OF EACH PART', 'COOK THEM AT A BONFIRE'], t: 220 }; sfx('levelup'); save(); }
   spark(SPAWNS.chest.x + 6, SPAWNS.chest.y, '#f8d048', 14);
 }
 function updateParticles() {
@@ -2551,7 +2575,7 @@ function drawHUD() {
   if (CH.meal) drawTextS('FED: ' + MEALS[CH.meal].name, 6, 30, '#f2a860');
   if (bannerT > 0) {
     ctx.globalAlpha = Math.max(0, Math.min(1, bannerT / 30, (260 - bannerT) / 20));
-    drawTextS('AREA ' + (levelIdx + 1), W / 2, 26, '#d8c8b8', 1, 'center');
+    drawTextS('AREA ' + (levelIdx + 1) + ' OF ' + LEVELS.length, W / 2, 26, '#d8c8b8', 1, 'center');
     drawTextS(LV.name, W / 2, 34, '#f2c14e', 2, 'center');
     drawTextS(ETYPES[LV.mob].name, W / 2, 48, '#e8dcc0', 1, 'center');
     drawTextS(LV.tip, W / 2, 58, '#8fd6c3', 1, 'center');

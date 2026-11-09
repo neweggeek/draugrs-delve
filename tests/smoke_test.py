@@ -192,6 +192,22 @@ async def main():
         n = await ev("LEVELS.slice(14).some(L => Object.values(L.mods || {}).some(t => t[0] === 'elite'))")
         check("elites spawn on deep floors", n)
         check("later Jarl leads to the next floor", await ev("__dd.state === 'clear' && __dd.CH.unlocked >= 21 && __dd.boss.bname === 'FROST JARL'"), str(await ev("[__dd.state, __dd.boss.bname]")))
+        # the real path past floor 10: first Jarl win screen, a key press, floor 11, its exit, floor 12, and so on to 100
+        await ev("__dd.newGame('knight', 9); __dd.CH.beat = false; killEnemy(__dd.boss)"); await pg.wait_for_timeout(2400)
+        await pg.wait_for_timeout(1300); await pg.keyboard.press("Enter"); await pg.wait_for_timeout(300)
+        check("after the first Jarl, a key goes on to floor 11", await ev("[__dd.state, __dd.levelIdx]") == ["play", 10], str(await ev("[__dd.state, __dd.levelIdx]")))
+        await ev("__dd.tp(SPAWNS.exit.x, SPAWNS.exit.y + 10)"); await pg.wait_for_timeout(300)
+        await pg.wait_for_timeout(900); await pg.keyboard.press("Enter"); await pg.wait_for_timeout(300)
+        check("floor 11 exit leads to floor 12", await ev("[__dd.state, __dd.levelIdx, __dd.CH.unlocked]") == ["play", 11, 12], str(await ev("[__dd.state, __dd.levelIdx, __dd.CH.unlocked]")))
+        n = await ev("""(() => { const seen = new Set(); let champs = 0, chests = 0;
+            for (let i = 10; i < 99; i++) { enterArea(i); seen.add(LV.theme); if (Object.values(LV.mods).some(t => t[1] === 'giant' && t[0] === 'elite')) champs++; if (SPAWNS.chest) chests++;
+              if (!SPAWNS.exit && !LV.arena) return 'no exit on ' + i; }
+            return [seen.size >= 6, champs >= 9, chests > 20]; })()""")
+        check("generated floors vary (themes, champions, chests)", n == [True, True, True], str(n))
+        n = await ev("""(() => { localStorage.setItem('dd2', JSON.stringify(Object.assign(newChar('knight'), { unlocked: 10, beat: true }))); return loadSave().unlocked; })()""")
+        check("old finished save unlocks floor 11", n == 11, str(n))
+        n = await ev("(() => { enterArea(10); while (SPAWNS.chest == null) enterArea(levelIdx + 1); CH.opened = {}; __dd.tp(SPAWNS.chest.x, SPAWNS.chest.y - 6); openChest(); return !!popup; })()")
+        check("generated chest gives something", n)
         # inventory, stats and loot
         await ev("__dd.newGame('knight',0); for (const e of __dd.enemies) e.dead = true; __dd.tp(300, 100)"); await pg.wait_for_timeout(300)
         check("knight starts with DEX and empty ring slot", await ev("__dd.CH.dex === 10 && __dd.CH.eq.r === 'noring' && stat('dex') === 10"))
