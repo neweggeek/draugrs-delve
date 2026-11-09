@@ -80,15 +80,38 @@
 - Inventory (I key, BAG button, or pause and bonfire menus): worn gear on top, bag grid below, cooking parts at the bottom. Pick an item to wear it, pick a worn ring, amulet or shield to take it off. Gear can be changed anywhere.
 - Stats screen (pause and bonfire menus): base stat, green gear bonus, total, then derived numbers.
 - Rarity: COMMON (beige), RARE (blue), EPIC (purple), LEGENDARY (gold). Drops glow with a beam in their color, bigger for better rarity.
-- Drops: chance = 10% + enemy XP / 600 (elites +50%). Rarity roll: 2% legendary, 10% epic, 28% rare, rest common, shifted toward better by 1 point per floor (cap 25) and 30 for elites. Only gear you do not own yet drops. Summons, split slimes and the Jarl do not roll.
+- Drops: chance = 10% + enemy XP / 600 (elites +50%). Rarity roll: 2% legendary, 10% epic, 28% rare, rest common, shifted toward better by 1 point per floor (cap 25) and 30 for elites. New gear drops first; once every item of a rarity is found, copies drop (fodder for combine or salvage). Summons, split slimes and the Jarl do not roll.
 - Loot pool: Bone Sword, Iron Ring, Bone Ring, Wolf Tooth (common); Bearded Axe, Round Shield, Wolf Pelt, Serpent Ring, Raven Charm (rare); Rune Blade, Frostfang, Bone Targe, Raven Leather, Ember Ring, Rune Stone (epic); Skullsplitter, Rune Mail, Allfather Ring, Thor's Hammer (legendary).
 - Chest gear is rare or epic and never drops from monsters.
+- Hover an item (mouse) for a tooltip: stats, gear bonus, status effects, weight, compare with worn (green better, red worse), salvage value. The panel under the grid shows the same for the picked item. A yellow dot marks gear found since you last looked. The grid scrolls (arrows, wheel, side buttons).
+
+## Weight
+- Every item has a weight in KG (rings and amulets 1, daggers 2, mail 15). Everything in the bag counts, worn or not.
+- Carry limit = 30 + 3 x STR (60 at STR 10). Over it you are OVERLOADED: walk at 65%, slow short roll (26 frames, i-frames 3 to 11), roll costs 27 stamina, stamina regen x0.6. The HUD and bag say so.
+- Fix it by salvaging, combining, or levelling STR (gear STR counts too).
+
+## Crafting
+- Salvage (bag, X or SALVAGE, press twice): breaks an item into rune dust: 3 / 8 / 20 / 50 by rarity, +4 per upgrade level. Your only worn copy can not be salvaged.
+- Combine (bag, C or COMBINE, then pick a second item of the same slot): the second item melts into the first, which gains +1 (plus half the melted item's upgrades), up to +10.
+- Upgrade +N: weapon damage x(1 + 0.08N), shield block +1% and stability +3 per level, armor defense +1.2% per level, ring and amulet stats +1 every 2 levels, other gear bonuses +1 every 3 levels, status buildup x(1 + 0.08N).
+- Rune altar on floors 3, 6, 9, ... (not boss halls), next to the bonfire. Craft a random item of a chosen rarity for 15 / 40 / 100 / 250 dust (unowned first), or temper worn weapon or armor for 30 + 25 x level x (rarity + 1) dust.
+- Dust also comes from kills (25% chance, elites and Jarls always, more on deep floors) and from chests that have nothing left to give.
+
+## Status effects
+- Four effects, same rules for the hero and monsters. Hits fill a meter to 100; the meter drains slowly. When it fills:
+  BLEED bursts for 20% max HP on the hero (25% on monsters, 8% on Jarls); POISON ticks 2% max HP every half second for 6 s;
+  BURN ticks 2.5% every quarter second for 2.5 s; FROST slows for 3.3 s (hero walks at 60% with half stamina regen, monsters act a third slower).
+- Blocking still fills meters, scaled by what the shield lets through. Elites fill 50% faster. A flask cures poison and burn.
+- Monsters: rats, bats, thralls, archers, shield knights and the Jarl bleed you; spiders and shamblers poison; ember slimes and wisps burn; Jarl frost waves freeze. Frost and ember traits add frost or burn.
+- Monster resist: skeletons resist bleed 50%, slimes are immune to burn, wisps to bleed, poison and burn, frost and ember traits to their own element, Jarls at least 50% to all.
+- Gear: weapons and some rings put meters on monsters (Bone Sword bleed, Rune Blade frost, Forge Axe burn, Serpent Ring poison, ...). Armor and trinkets resist (Wolf Pelt bleed 40%, Raven Leather poison 40%, Rune Mail frost 40%, Thor's Hammer burn 40%, ...). Fireball adds burn. The stats screen sums it up.
 
 ## Clarity
 - A controls screen opens when a new game starts (keyboard or touch version) and from the pause menu (CONTROLS).
 - Touch: MENU button at the top pauses (resume, inventory, stats, controls, quit). Gamepad: Start pauses, Select opens the bag.
 - Title floor picker: A D one floor, Shift + A D ten floors (<< >> on touch, LB RB on a pad).
 - The game saves when the tab is hidden or closed, so XP is not lost.
+- Touch: the USE button turns into DROP on a one-way ledge.
 
 ## Not built yet
-NPCs or shops, settings menu, gear upgrades (the loot pool is all found by about floor 25), touch drop-down through ledges.
+NPCs or shops, settings menu.
